@@ -1,5 +1,5 @@
 {
-  "version": "V5.1-json-local-BAN",
+  "version": "V5.2-json-local-BAN",
   "model_type": "logistic_regression",
   "intercept": -22.463984373194723,
   "features": [
