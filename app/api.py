@@ -4,12 +4,13 @@ from functools import lru_cache
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from matcher import AddressMatcher
 
 
 class ScoreRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     address_a: str = Field(min_length=3, max_length=500)
     address_b: str = Field(min_length=3, max_length=500)
     use_ban: bool = True
@@ -22,8 +23,8 @@ def get_matcher() -> AddressMatcher:
 
 app = FastAPI(
     title="Address Matcher",
-    version="5.0",
-    description="Comparaison d'adresses francaises avec modele V3 + BAN locale optionnelle.",
+    version="5.1",
+    description="Comparaison d'adresses francaises avec regles structurelles + BAN locale optionnelle.",
 )
 
 
@@ -32,7 +33,7 @@ def health() -> Dict[str, Any]:
     matcher = get_matcher()
     return {
         "status": "ok",
-        "model_version": "V5-local-BAN",
+        "model_version": "V5.1-local-BAN",
         "ban": matcher.ban.stats(),
     }
 
