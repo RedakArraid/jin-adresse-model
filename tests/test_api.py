@@ -26,7 +26,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["model_version"], "V5.2-local-BAN")
+        self.assertEqual(body["model_version"], "V5.3-local-BAN")
 
     def test_score_endpoint(self):
         r = self.client.post("/score", json={
