@@ -1,0 +1,57 @@
+{
+  "version": "V5-json-local-BAN",
+  "model_type": "logistic_regression",
+  "intercept": -22.463984373194723,
+  "features": [
+    "norm_exact","sim_full_ratio","sim_full_wratio","sim_token_set","sim_token_sort",
+    "token_jaccard","length_ratio","token_count_diff","one_contains_other","sim_street",
+    "street_jaccard","sim_city","num_present_both","num_exact","num_abs_diff","num_near_1",
+    "num_conflict","suffix_present_any","suffix_exact","suffix_conflict","suffix_missing_one",
+    "type_present_both","type_exact","cp_present_both","cp_exact","cp_conflict",
+    "cp_dept_exact","city_present_both","city_exact","city_conflict"
+  ],
+  "coefficients": {
+    "norm_exact": 2.6471382885031938,
+    "sim_full_ratio": -0.241949010535736,
+    "sim_full_wratio": 5.993134478949299,
+    "sim_token_set": 1.132582873899219,
+    "sim_token_sort": 4.754168449088117,
+    "token_jaccard": -0.9132880949823141,
+    "length_ratio": 2.6189815490157713,
+    "token_count_diff": -0.022134917146463425,
+    "one_contains_other": -0.44415410623387025,
+    "sim_street": 6.722623977378167,
+    "street_jaccard": -1.660144862966886,
+    "sim_city": 0.6381424371110918,
+    "num_present_both": -0.5684840357532966,
+    "num_exact": 4.193203488761347,
+    "num_abs_diff": 0.007596991832141619,
+    "num_near_1": 2.14688083845236,
+    "num_conflict": -4.761687524522681,
+    "suffix_present_any": -0.17229379970960462,
+    "suffix_exact": 3.6597859308975695,
+    "suffix_conflict": -2.170522537568807,
+    "suffix_missing_one": -1.9750429624103665,
+    "type_present_both": -0.48577956908784065,
+    "type_exact": 2.938415589820599,
+    "cp_present_both": -2.259182929120159,
+    "cp_exact": 3.384365982472558,
+    "cp_conflict": -5.64354891157601,
+    "cp_dept_exact": -1.9890627881894556,
+    "city_present_both": -1.7844311965250648,
+    "city_exact": -0.1838690620275708,
+    "city_conflict": -1.6005621345009657
+  },
+  "threshold_different": 0.05,
+  "threshold_match": 0.95,
+  "cities": [
+    "Paris","Drancy","Bobigny","Clichy","Saint-Denis","Montreuil","Lyon","Marseille",
+    "Toulouse","Lille","Nantes","Bordeaux","Strasbourg","Rennes","Aix-en-Provence",
+    "Aix-les-Bains","Nice","Grenoble","Dijon","Reims","Le Havre","Angers","Nîmes",
+    "Clermont-Ferrand","Saint-Étienne","Tours","Metz","Nancy","Rouen","Montpellier"
+  ],
+  "notes": [
+    "Portable production model exported to JSON coefficients.",
+    "Thresholds favor high-confidence automatic decisions; ambiguous pairs are routed to A_CONTROLER."
+  ]
+}
