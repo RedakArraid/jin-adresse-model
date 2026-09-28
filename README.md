@@ -11,10 +11,11 @@ Prototype de rapprochement d'adresses francaises avec interface Streamlit, API F
 
 Le scoring reste **hors ligne**. Internet n'est necessaire que pour telecharger/mettre a jour la BAN.
 
-## Correctifs V5.1
+## Correctifs V5.2
 
-La V5.1 renforce la securite du prototype :
+La V5.2 renforce la securite et la couverture de normalisation du prototype :
 
+- `bv`, `bvd` et `blvd` sont normalises en `boulevard` ; une structure exactement identique (numero, suffixe, voie, CP, commune) obtient un score minimal de 99 % apres verification des conflits ;
 - le code postal sert de frontiere entre la voie et la commune ; `10 rue de Paris 75001 Paris` conserve bien `de paris` comme nom de voie ;
 - la commune est extraite structurellement apres le code postal, donc le mode sans BAN ne depend plus d'une liste fermee de communes ;
 - les conflits explicites de numero, suffixe (`14` / `14 bis`), code postal, commune et nom de voie ne peuvent plus etre compenses par le fuzzy matching ;
@@ -72,7 +73,7 @@ Le remplacement d'un departement est atomique : le nouveau fichier est d'abord c
 370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE
 ```
 
-En mode texte V5.1, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
+En mode texte V5.2, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
 
 ## 4. Regles structurelles
 
