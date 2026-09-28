@@ -54,6 +54,41 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual(r["decision"], "DIFFERENTE")
         self.assertEqual(r["decision_reason"], "CONFLIT_SUFFIXE_NUMERO")
 
+    def test_explicit_street_type_conflict_rue_vs_boulevard(self):
+        r = self.score(
+            "187 rue de pontoise 75015 paris",
+            "187 boulevard de pontoise 75015 paris",
+        )
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_TYPE_VOIE")
+        self.assertLessEqual(r["score_final"], 8.0)
+
+    def test_explicit_street_type_conflict_route_vs_avenue(self):
+        r = self.score(
+            "42 route de grenoble 69003 lyon",
+            "42 avenue de grenoble 69003 lyon",
+        )
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_TYPE_VOIE")
+
+    def test_near_street_typo_requires_review(self):
+        r = self.score(
+            "12 avenue jean jaures 75019 paris",
+            "12 avenue jean jauresx 75019 paris",
+        )
+        self.assertEqual(r["decision"], "A_CONTROLER")
+        self.assertEqual(r["decision_reason"], "NOM_VOIE_PROCHE_NON_IDENTIQUE")
+        self.assertLessEqual(r["score_final"], 89.0)
+
+    def test_bld_is_boulevard(self):
+        r = self.score(
+            "187 bld de pontoise 75015 paris",
+            "187 boulevard de pontoise 75015 paris",
+        )
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+        self.assertGreaterEqual(r["score_final"], 99.0)
+        self.assertEqual(r["parsed_A"]["type_voie"], "boulevard")
+
     def test_city_name_inside_street_no_false_positive(self):
         r = self.score("10 rue de Paris 75001 Paris", "10 rue de Lyon 75001 Paris")
         self.assertEqual(r["parsed_A"]["nom_voie"], "de paris")
