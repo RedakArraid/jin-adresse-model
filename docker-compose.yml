@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MODEL_PATH: /app/modele_matching_adresses_v3.joblib
+      BAN_DB_PATH: /data/ban/ban.sqlite
+    volumes:
+      - ban_data:/data/ban
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  ui:
+    build: .
+    command: ["streamlit", "run", "ui.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+  ban-loader:
+    build: .
+    profiles: ["tools"]
+    entrypoint: ["python", "/app/scripts/download_ban.py"]
+    command: ["--departments", "13"]
+    environment:
+      BAN_DB_PATH: /data/ban/ban.sqlite
+    volumes:
+      - ban_data:/data/ban
+
+volumes:
+  ban_data:
