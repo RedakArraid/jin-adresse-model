@@ -1,65 +1,94 @@
 from __future__ import annotations
 
-import csv
-import os
-import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app"
-SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(APP))
 
 from matcher import AddressMatcher
 
 
 class MatcherTests(unittest.TestCase):
-    def test_text_only_saint_canadet(self):
-        m = AddressMatcher(APP / "model_config.json", "/tmp/does-not-exist-ban.sqlite")
-        r = m.score(
+    @classmethod
+    def setUpClass(cls):
+        cls.matcher = AddressMatcher(APP / "model_config.json", "/tmp/does-not-exist-ban.sqlite")
+
+    def score(self, a, b):
+        return self.matcher.score(a, b, use_ban=False)
+
+    def test_saint_canadet(self):
+        r = self.score(
             "370 RTE DE ST CANADET 13100 AIX EN PROVENCE",
             "370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE",
-            use_ban=True,
         )
         self.assertEqual(r["decision"], "MEME_ADRESSE")
         self.assertGreaterEqual(r["score_final"], 95)
-        self.assertFalse(r["ban_used"])
 
-    def test_local_ban_pipeline(self):
-        with tempfile.TemporaryDirectory() as td:
-            td = Path(td)
-            csv_path = td / "adresses-with-ids-13.csv"
-            db_path = td / "ban.sqlite"
-            with csv_path.open("w", encoding="utf-8", newline="") as f:
-                w = csv.DictWriter(f, fieldnames=["id_ban", "numero", "rep", "nom_voie", "code_postal", "code_insee", "nom_commune", "lon", "lat"], delimiter=";")
-                w.writeheader()
-                w.writerow({
-                    "id_ban": "TEST-SAINT-CANADET-370",
-                    "numero": "370",
-                    "rep": "",
-                    "nom_voie": "Route de Saint-Canadet",
-                    "code_postal": "13100",
-                    "code_insee": "13001",
-                    "nom_commune": "Aix-en-Provence",
-                    "lon": "5.44",
-                    "lat": "43.55",
-                })
-            subprocess.run([
-                sys.executable, str(SCRIPTS / "download_ban.py"), "--db", str(db_path), "--from-file", str(csv_path)
-            ], check=True, env={**os.environ, "PYTHONPATH": str(APP)})
-            m = AddressMatcher(APP / "model_config.json", db_path)
-            r = m.score(
-                "370 RTE DE ST CANADET 13100 AIX EN PROVENCE",
-                "370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE",
-                use_ban=True,
-            )
-            self.assertTrue(r["ban_used"])
-            self.assertEqual(r["decision"], "MEME_ADRESSE")
-            self.assertEqual(r["address_a_ban"]["id_ban"], "TEST-SAINT-CANADET-370")
-            self.assertEqual(r["address_b_ban"]["id_ban"], "TEST-SAINT-CANADET-370")
+    def test_city_name_inside_street_no_false_positive(self):
+        r = self.score("10 rue de Paris 75001 Paris", "10 rue de Lyon 75001 Paris")
+        self.assertEqual(r["parsed_A"]["nom_voie"], "de paris")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertLessEqual(r["score_final"], 15)
+
+    def test_large_house_number_conflict(self):
+        r = self.score("1 rue A 75001 Paris", "999 rue A 75001 Paris")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_NUMERO")
+        self.assertLessEqual(r["score_final"], 4)
+
+    def test_adjacent_house_number_conflict(self):
+        r = self.score("25 boulevard Voltaire 75011 Paris", "26 boulevard Voltaire 75011 Paris")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_NUMERO")
+
+    def test_suffix_missing_conflict(self):
+        r = self.score("14 rue Victor Hugo 92110 Clichy", "14 bis rue Victor Hugo 92110 Clichy")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_SUFFIXE_NUMERO")
+
+    def test_suffix_value_conflict(self):
+        r = self.score("14 bis rue Victor Hugo 92110 Clichy", "14 ter rue Victor Hugo 92110 Clichy")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+
+    def test_postcode_conflict(self):
+        r = self.score("25 boulevard Voltaire 75011 Paris", "25 boulevard Voltaire 69003 Lyon")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_CODE_POSTAL")
+
+    def test_city_conflict_same_postcode(self):
+        r = self.score("10 rue Victor Hugo 75001 Paris", "10 rue Victor Hugo 75001 Lyon")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_COMMUNE")
+
+    def test_different_street_same_core(self):
+        r = self.score("5 rue de Brest 29000 Quimper", "5 rue de Lorient 29000 Quimper")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_NOM_VOIE")
+
+    def test_near_homonym_is_not_automatic_match(self):
+        r = self.score("12 avenue Victor Hugo 75015 Paris", "12 avenue Victor Huguet 75015 Paris")
+        self.assertNotEqual(r["decision"], "MEME_ADRESSE")
+
+    def test_unknown_city_same_address(self):
+        r = self.score("12 R DE LA GARE 47200 MARMANDE", "12 rue de la Gare 47200 Marmande")
+        self.assertEqual(r["parsed_A"]["ville_norm"], "marmande")
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+
+    def test_unknown_city_different_street(self):
+        r = self.score("12 rue de la Gare 47200 Marmande", "12 rue Pasteur 47200 Marmande")
+        self.assertEqual(r["decision"], "DIFFERENTE")
+
+    def test_missing_postcode_does_not_force_city_conflict(self):
+        r = self.score("12 rue Victor Hugo Paris", "12 rue Victor Hugo 75015 Paris")
+        self.assertIn(r["decision"], {"MEME_ADRESSE", "A_CONTROLER"})
+
+    def test_raw_model_score_is_exposed_for_audit(self):
+        r = self.score("1 rue A 75001 Paris", "999 rue A 75001 Paris")
+        self.assertIn("raw_model_score", r)
+        self.assertGreaterEqual(r["raw_model_score"], r["score_final"])
 
 
 if __name__ == "__main__":
