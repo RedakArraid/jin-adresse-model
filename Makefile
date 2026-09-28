@@ -17,5 +17,4 @@ ban:
 	docker compose run --rm ban-loader --departments $(DEPS)
 
 test:
-	python app/reconstruct_model.py
 	python -m unittest discover -s tests -v
