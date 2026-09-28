@@ -5,5 +5,3 @@ __pycache__
 *.zip
 data/ban/*
 !data/ban/.gitkeep
-
-app/modele_matching_adresses_v3.joblib
