@@ -1,24 +1,106 @@
-COMPARATEUR D'ADRESSES - DEMARRAGE RAPIDE
+COMPARATEUR D'ADRESSES - V5.4 - DEMARRAGE RAPIDE
 
-1) Decompresser le projet et entrer dans le dossier.
+1) Cloner le depot et entrer dans le dossier
 
-2) Demarrer :
+   git clone https://github.com/RedakArraid/jin-adresse-model.git
+   cd jin-adresse-model
+
+
+2) Demarrer l'API et l'interface
+
    docker compose up --build -d
 
-3) Ouvrir l'interface :
+
+3) Ouvrir les services
+
+   Interface :
    http://localhost:8501
 
-4) Optionnel - importer la BAN locale du departement 13 :
+   API Swagger :
+   http://localhost:8000/docs
+
+   Healthcheck :
+   http://localhost:8000/health
+
+
+4) Essayer le moteur sans BAN
+
+   Le moteur fonctionne directement en mode texte V5.4.
+
+   Il applique :
+   - normalisation des abreviations ;
+   - parsing numero / suffixe / type de voie / voie / CP / commune ;
+   - modele logistique local ;
+   - regles structurelles prioritaires ;
+   - politique de decision centralisee dans app/model_config.json.
+
+
+5) Optionnel - importer la BAN locale
+
+   Un departement :
+
    docker compose run --rm ban-loader --departments 13
 
    Plusieurs departements :
+
    docker compose run --rm ban-loader --departments 13 75 69 93
 
-5) Documentation API :
-   http://localhost:8000/docs
+   Le scoring reste ensuite local dans SQLite.
 
-6) Arreter :
+
+6) Verifier l'etat de la BAN
+
+   curl http://localhost:8000/ban/status
+
+
+7) Tester l'API
+
+   curl -X POST http://localhost:8000/score \
+     -H "Content-Type: application/json" \
+     -d '{
+       "address_a": "187 bld de pontoise 75015 paris",
+       "address_b": "187 boulevard de pontoise 75015 paris",
+       "use_ban": true
+     }'
+
+
+8) Lancer les tests
+
+   python -m unittest discover -s tests -v
+
+   Le corpus de non-regression est :
+   tests/corpus_decisions.json
+
+
+9) Voir les logs
+
+   docker compose logs -f api ui
+
+
+10) Arreter
+
    docker compose down
 
-Sans BAN importee, le moteur reste utilisable en mode texte V3.1.
-Avec BAN importee, le scoring ajoute une verification locale de l'existence et de l'identite de l'adresse.
+   Pour supprimer egalement le volume BAN :
+
+   docker compose down -v
+
+
+DECISIONS
+
+MEME_ADRESSE
+A_CONTROLER
+DIFFERENTE
+
+Le seuil de match automatique est 95.
+Les noms de voie proches mais non identiques sont plafonnes a 89 et restent A_CONTROLER.
+
+DOCUMENTATION DETAILLEE
+
+README.md
+docs/ARCHITECTURE.md
+docs/DECISION_POLICY.md
+docs/API.md
+docs/BAN.md
+docs/TESTING.md
+docs/OPERATIONS.md
