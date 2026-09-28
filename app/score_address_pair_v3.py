@@ -32,6 +32,11 @@ MULTIWORD_NORMALIZATIONS = [
     (r'\bzone\s+d\s+amenagement\s+concerte\b','zoneamenagement'),
     (r'\bcentre\s+commercial\b','centrecommercial'),(r'\bboite\s+postale\b','bp')
 ]
+POSTAL_TAIL_STOP = {'france'}
+ADDRESS_COMPLEMENTS = {
+    'batiment','appartement','etage','entree','immeuble','zoneactivite','zoneindustrielle',
+    'zoneamenagement','centrecommercial','bp','cedex'
+}
 
 
 def strip_accents(s: str) -> str:
@@ -53,59 +58,108 @@ def normalize_text(s: str) -> str:
         s = re.sub(pat, repl, s)
     out = []
     for tok in re.sub(r'\s+', ' ', s).strip().split():
-        out.append(TYPE_ALIAS_MAP.get(WORD_ALIAS_MAP.get(tok, tok), WORD_ALIAS_MAP.get(tok, tok)))
+        mapped = WORD_ALIAS_MAP.get(tok, tok)
+        out.append(TYPE_ALIAS_MAP.get(mapped, mapped))
     return ' '.join(out)
 
 
-def make_city_map(city_names):
-    return {normalize_text(c): c for c in city_names}
+def make_city_map(city_names=None):
+    """Legacy fallback for addresses without a postal code.
+
+    Normal postal addresses are parsed structurally from the five-digit postal code,
+    so national coverage does not depend on this map.
+    """
+    return {normalize_text(c): c for c in (city_names or [])}
 
 
-def parse_address(raw: str, city_map):
+def _postal_city(tokens: list[str], cp_idx: int) -> str:
+    """Return the locality segment after the postal code, without touching the street."""
+    tail = list(tokens[cp_idx + 1:])
+    if not tail:
+        return ''
+    if 'cedex' in tail:
+        tail = tail[:tail.index('cedex')]
+    while tail and tail[-1] in POSTAL_TAIL_STOP:
+        tail.pop()
+    if len(tail) > 1 and re.fullmatch(r'\d{1,2}', tail[-1]):
+        tail = tail[:-1]
+    return ' '.join(tail).strip()
+
+
+def _fallback_city_without_cp(n: str, city_map: dict[str, str]) -> tuple[str, int | None]:
+    """Conservative legacy fallback when no postal code is present."""
+    if not city_map:
+        return '', None
+    best = ''
+    best_pos = None
+    for cn in sorted(city_map, key=len, reverse=True):
+        m = re.search(r'(?<!\w)' + re.escape(cn) + r'(?!\w)\s*$', n)
+        if m:
+            best = cn
+            best_pos = len(n[:m.start()].split())
+            break
+    return best, best_pos
+
+
+def parse_address(raw: str, city_map=None):
+    city_map = city_map or {}
     n = normalize_text(raw)
     tokens = n.split()
-    cp_m = re.search(r'(?<!\d)(\d{5})(?!\d)', n)
-    cp = cp_m.group(1) if cp_m else ''
-    city_norm = ''
-    for cn in sorted(city_map, key=len, reverse=True):
-        if re.search(r'(?<!\w)' + re.escape(cn) + r'(?!\w)', n):
-            city_norm = cn
-            break
-    type_idx, stype = None, ''
+
+    cp_idx = None
+    cp = ''
     for i, tok in enumerate(tokens):
+        if re.fullmatch(r'\d{5}', tok):
+            cp_idx, cp = i, tok
+            break
+
+    if cp_idx is not None:
+        city_norm = _postal_city(tokens, cp_idx)
+        city_source = 'postal_segment'
+        city_start_idx = cp_idx + 1
+    else:
+        city_norm, city_start_idx = _fallback_city_without_cp(n, city_map)
+        city_source = 'fallback_dictionary' if city_norm else ''
+
+    type_idx, stype = None, ''
+    street_search_end = cp_idx if cp_idx is not None else len(tokens)
+    for i, tok in enumerate(tokens[:street_search_end]):
         if tok in STREET_TYPES:
             type_idx, stype = i, tok
             break
-    num, suffix = '', ''
-    digits = [(i, t) for i, t in enumerate(tokens) if re.fullmatch(r'\d{1,4}', t)]
+
+    num, suffix, pos = '', '', None
+    digits = [(i, t) for i, t in enumerate(tokens[:street_search_end]) if re.fullmatch(r'\d{1,4}', t)]
     if type_idx is not None:
         before = [(i, t) for i, t in digits if i < type_idx]
         if before:
             pos, num = before[-1]
         elif digits:
             pos, num = digits[0]
-        else:
-            pos = None
     elif digits:
         pos, num = digits[0]
-    else:
-        pos = None
     if pos is not None and pos + 1 < len(tokens) and tokens[pos + 1] in ('bis', 'ter', 'quater'):
         suffix = tokens[pos + 1]
-    city_toks = set(city_norm.split()) if city_norm else set()
+
     street_tokens = []
-    stop_words = {'batiment','appartement','etage','entree','immeuble','zoneactivite','zoneindustrielle','zoneamenagement','centrecommercial','bp','cedex'}
     if type_idx is not None:
-        for tok in tokens[type_idx + 1:]:
-            if tok == cp or re.fullmatch(r'\d{5}', tok) or tok in stop_words:
+        end = cp_idx if cp_idx is not None else (city_start_idx if city_start_idx is not None else len(tokens))
+        for tok in tokens[type_idx + 1:end]:
+            if tok in ADDRESS_COMPLEMENTS:
                 break
-            if tok in city_toks:
-                continue
             street_tokens.append(tok)
     street = ' '.join(street_tokens).strip()
-    if city_norm and street.endswith(city_norm):
-        street = street[:-len(city_norm)].strip()
-    return {'norm': n, 'numero': num, 'suffixe': suffix, 'type_voie': stype, 'nom_voie': street, 'code_postal': cp, 'ville_norm': city_norm}
+
+    return {
+        'norm': n,
+        'numero': num,
+        'suffixe': suffix,
+        'type_voie': stype,
+        'nom_voie': street,
+        'code_postal': cp,
+        'ville_norm': city_norm,
+        'ville_source': city_source,
+    }
 
 
 def jaccard_tokens(a, b):
@@ -133,13 +187,13 @@ def safe_token_set(a, b):
     return fuzz.token_set_ratio(str(a), str(b)) / 100.0
 
 
-def make_features(raw_a, raw_b, city_map, ext_a=None, ext_b=None):
+def make_features(raw_a, raw_b, city_map=None, ext_a=None, ext_b=None):
     pa, pb = parse_address(raw_a, city_map), parse_address(raw_b, city_map)
     na, nb = pa['norm'], pb['norm']
     numa, numb = pa['numero'], pb['numero']
     numa_i = int(numa) if numa.isdigit() else None
     numb_i = int(numb) if numb.isdigit() else None
-    num_diff = abs(numa_i - numb_i) if numa_i is not None and numb_i is not None else 999.0
+    num_diff = abs(numa_i - numb_i) if numa_i is not None and numb_i is not None else 0.0
     cpa, cpb = pa['code_postal'], pb['code_postal']
     citya, cityb = pa['ville_norm'], pb['ville_norm']
     sa, sb = pa['suffixe'], pb['suffixe']
@@ -158,7 +212,7 @@ def make_features(raw_a, raw_b, city_map, ext_a=None, ext_b=None):
         'sim_city': safe_ratio(citya, cityb),
         'num_present_both': int(bool(numa) and bool(numb)),
         'num_exact': int(bool(numa) and bool(numb) and numa == numb),
-        'num_abs_diff': min(num_diff, 999.0),
+        'num_abs_diff': min(float(num_diff), 50.0),
         'num_near_1': int(num_diff == 1),
         'num_conflict': int(bool(numa) and bool(numb) and numa != numb),
         'suffix_present_any': int(bool(sa) or bool(sb)),
@@ -173,6 +227,6 @@ def make_features(raw_a, raw_b, city_map, ext_a=None, ext_b=None):
         'cp_dept_exact': int(len(cpa) >= 2 and len(cpb) >= 2 and cpa[:2] == cpb[:2]),
         'city_present_both': int(bool(citya) and bool(cityb)),
         'city_exact': int(bool(citya) and bool(cityb) and citya == cityb),
-        'city_conflict': int(bool(citya) and bool(cityb) and citya != cityb),
+        'city_conflict': int(bool(citya) and bool(cityb) and safe_ratio(citya, cityb) < 0.80),
     }
     return f, pa, pb
