@@ -49,14 +49,18 @@ class ParserTests(unittest.TestCase):
         b = normalize_text("370 route de Saint Canadet 13100 Aix en Provence")
         self.assertEqual(a, b)
 
-    def test_bv_and_bvd_normalize_to_boulevard(self):
-        expected = normalize_text("187 boulevard de pontoise 95370 montigny les cormeilles")
+    def test_bv_bvd_and_bld_normalize_to_boulevard(self):
+        expected = normalize_text("187 boulevard de pontoise 75015 paris")
         self.assertEqual(
-            normalize_text("187 bv de pontoise 95370 montigny les cormeilles"),
+            normalize_text("187 bv de pontoise 75015 paris"),
             expected,
         )
         self.assertEqual(
-            normalize_text("187 bvd de pontoise 95370 montigny les cormeilles"),
+            normalize_text("187 bvd de pontoise 75015 paris"),
+            expected,
+        )
+        self.assertEqual(
+            normalize_text("187 bld de pontoise 75015 paris"),
             expected,
         )
 
