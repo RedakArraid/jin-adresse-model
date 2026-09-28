@@ -10,7 +10,7 @@ API_URL = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
 
 st.set_page_config(page_title="Comparateur d'adresses", page_icon="📍", layout="wide")
 st.title("📍 Comparateur d'adresses")
-st.caption("Modele V3.1 + verification optionnelle dans une Base Adresse Nationale locale")
+st.caption("V5.4 - scoring local, regles structurelles et Base Adresse Nationale locale optionnelle")
 
 
 def api_get(path: str) -> Dict[str, Any]:
@@ -31,7 +31,7 @@ try:
         deps = ", ".join(ban.get("departments", [])) or "n/a"
         st.success(f"BAN locale disponible : {ban.get('rows', 0):,} adresses | departements : {deps}".replace(",", " "))
     else:
-        st.warning("BAN locale non importee : le moteur fonctionne en mode texte V3. Utilise la commande ban-loader pour l'ajouter.")
+        st.warning("BAN locale non importee : le moteur fonctionne en mode texte V5.4. Utilise la commande ban-loader pour l'ajouter.")
 except Exception as exc:
     st.error(f"API indisponible : {exc}")
     st.stop()
@@ -65,7 +65,7 @@ if st.button("Comparer", type="primary", use_container_width=True):
     c1, c2, c3 = st.columns(3)
     c1.metric("Score final", f"{score:.2f} / 100")
     c2.metric("Decision", decision)
-    c3.metric("Score texte V3", f"{float(result.get('score_text_v3', 0)):.2f} / 100")
+    c3.metric("Score texte", f"{float(result.get('score_text_v3', 0)):.2f} / 100")
 
     if decision == "MEME_ADRESSE":
         st.success("Les deux adresses sont considerees comme la meme adresse.")
@@ -74,7 +74,7 @@ if st.button("Comparer", type="primary", use_container_width=True):
     else:
         st.warning("La paire doit etre controlee.")
 
-    st.caption(f"Raison : {result.get('decision_reason', '')}")
+    st.caption(f"Version : {result.get('model_version', 'n/a')} | Raison : {result.get('decision_reason', '')}")
 
     with st.expander("Normalisation / parsing"):
         p1, p2 = st.columns(2)
