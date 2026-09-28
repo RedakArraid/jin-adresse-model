@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 import math
 import os
-import re
 import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from rapidfuzz import fuzz
 
@@ -15,8 +15,7 @@ from score_address_pair_v3 import normalize_text
 
 def _norm_suffix(value: str) -> str:
     v = normalize_text(value or "").strip()
-    aliases = {"b": "bis", "t": "ter", "q": "quater"}
-    return aliases.get(v, v)
+    return {"b": "bis", "t": "ter", "q": "quater"}.get(v, v)
 
 
 def _haversine_m(lat1, lon1, lat2, lon2) -> Optional[float]:
@@ -28,6 +27,14 @@ def _haversine_m(lat1, lon1, lat2, lon2) -> Optional[float]:
     dl = math.radians(float(lon2) - float(lon1))
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * r * math.asin(min(1.0, math.sqrt(a)))
+
+
+def _street_anchor(street: str) -> str:
+    ignore = {"de", "du", "des", "la", "le", "les", "aux", "au", "d"}
+    tokens = [t for t in normalize_text(street).split() if t not in ignore]
+    if not tokens:
+        tokens = normalize_text(street).split()
+    return max(tokens, key=len) if tokens else ""
 
 
 @dataclass
@@ -61,30 +68,111 @@ class LocalBanResult:
 class LocalBANGeocoder:
     def __init__(self, db_path: str | Path | None = None):
         self.db_path = Path(db_path or os.environ.get("BAN_DB_PATH", "/data/ban/ban.sqlite"))
+        self._signature_cache: Optional[Tuple[int, int]] = None
+        self._available_cache: Optional[bool] = None
+        self._stats_cache: Optional[Dict[str, Any]] = None
+
+    def _signature(self) -> Optional[Tuple[int, int]]:
+        try:
+            stat = self.db_path.stat()
+            return stat.st_size, stat.st_mtime_ns
+        except OSError:
+            return None
+
+    def _refresh_cache_if_changed(self) -> None:
+        sig = self._signature()
+        if sig != self._signature_cache:
+            self._signature_cache = sig
+            self._available_cache = None
+            self._stats_cache = None
 
     def available(self) -> bool:
-        if not self.db_path.exists() or self.db_path.stat().st_size < 1024:
+        self._refresh_cache_if_changed()
+        if self._available_cache is not None:
+            return self._available_cache
+        if self._signature_cache is None or self._signature_cache[0] < 1024:
+            self._available_cache = False
             return False
         try:
             with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=3) as con:
-                row = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ban_addresses'").fetchone()
-                return bool(row)
+                row = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ban_addresses'").fetchone()
+                self._available_cache = bool(row)
         except sqlite3.Error:
-            return False
+            self._available_cache = False
+        return self._available_cache
 
     def stats(self) -> Dict[str, Any]:
+        self._refresh_cache_if_changed()
+        if self._stats_cache is not None:
+            return dict(self._stats_cache)
         if not self.available():
-            return {"available": False, "path": str(self.db_path), "rows": 0, "departments": []}
+            self._stats_cache = {"available": False, "path": str(self.db_path), "rows": 0, "departments": []}
+            return dict(self._stats_cache)
         try:
             with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
-                rows = int(con.execute("SELECT COUNT(*) FROM ban_addresses").fetchone()[0])
-                deps = [r[0] for r in con.execute("SELECT DISTINCT departement FROM ban_addresses ORDER BY departement").fetchall() if r[0]]
-                meta = dict(con.execute("SELECT key, value FROM metadata").fetchall()) if con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'").fetchone() else {}
-            return {"available": True, "path": str(self.db_path), "rows": rows, "departments": deps, "metadata": meta}
-        except sqlite3.Error as exc:
-            return {"available": False, "path": str(self.db_path), "rows": 0, "departments": [], "error": str(exc)}
+                has_meta = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='metadata'").fetchone()
+                meta = dict(con.execute("SELECT key, value FROM metadata").fetchall()) if has_meta else {}
+                if "rows_total" in meta:
+                    rows = int(meta["rows_total"])
+                else:
+                    rows = int(con.execute("SELECT COUNT(*) FROM ban_addresses").fetchone()[0])
+                if "departments_json" in meta:
+                    deps = json.loads(meta["departments_json"])
+                else:
+                    deps = [r[0] for r in con.execute("SELECT DISTINCT departement FROM ban_addresses ORDER BY departement").fetchall() if r[0]]
+            self._stats_cache = {"available": True, "path": str(self.db_path), "rows": rows, "departments": deps, "metadata": meta}
+        except (sqlite3.Error, ValueError, json.JSONDecodeError) as exc:
+            self._stats_cache = {"available": False, "path": str(self.db_path), "rows": 0, "departments": [], "error": str(exc)}
+        return dict(self._stats_cache)
 
-    def lookup(self, query: str, parsed: Dict[str, str], limit: int = 600) -> LocalBanResult:
+    def _candidate_rows(self, con: sqlite3.Connection, cp: str, numero: str, ville: str, street: str, limit: int) -> List[sqlite3.Row]:
+        columns = "id_ban, numero, rep, nom_voie, nom_voie_norm, code_postal, code_insee, nom_commune, nom_commune_norm, lon, lat, label"
+        anchor = _street_anchor(street)
+
+        if cp and numero:
+            return con.execute(
+                f"SELECT {columns} FROM ban_addresses WHERE code_postal = ? AND numero = ? ORDER BY nom_voie_norm, rep LIMIT ?",
+                (cp, numero, limit),
+            ).fetchall()
+
+        if cp and street:
+            rows = con.execute(
+                f"SELECT {columns} FROM ban_addresses WHERE code_postal = ? AND (nom_voie_norm = ? OR nom_voie_norm LIKE ?) "
+                "ORDER BY CASE WHEN nom_voie_norm = ? THEN 0 ELSE 1 END, nom_voie_norm LIMIT ?",
+                (cp, street, street + "%", street, limit),
+            ).fetchall()
+            if rows:
+                return rows
+            if anchor:
+                return con.execute(
+                    f"SELECT {columns} FROM ban_addresses WHERE code_postal = ? AND instr(nom_voie_norm, ?) > 0 "
+                    "ORDER BY ABS(LENGTH(nom_voie_norm) - ?), nom_voie_norm LIMIT ?",
+                    (cp, anchor, len(street), limit),
+                ).fetchall()
+
+        if ville and numero:
+            return con.execute(
+                f"SELECT {columns} FROM ban_addresses WHERE nom_commune_norm = ? AND numero = ? ORDER BY nom_voie_norm, rep LIMIT ?",
+                (ville, numero, limit),
+            ).fetchall()
+
+        if ville and street:
+            rows = con.execute(
+                f"SELECT {columns} FROM ban_addresses WHERE nom_commune_norm = ? AND (nom_voie_norm = ? OR nom_voie_norm LIKE ?) "
+                "ORDER BY CASE WHEN nom_voie_norm = ? THEN 0 ELSE 1 END, nom_voie_norm LIMIT ?",
+                (ville, street, street + "%", street, limit),
+            ).fetchall()
+            if rows:
+                return rows
+            if anchor:
+                return con.execute(
+                    f"SELECT {columns} FROM ban_addresses WHERE nom_commune_norm = ? AND instr(nom_voie_norm, ?) > 0 "
+                    "ORDER BY ABS(LENGTH(nom_voie_norm) - ?), nom_voie_norm LIMIT ?",
+                    (ville, anchor, len(street), limit),
+                ).fetchall()
+        return []
+
+    def lookup(self, query: str, parsed: Dict[str, str], limit: int = 250) -> LocalBanResult:
         if not self.available():
             return LocalBanResult(query=query, error="BAN locale non importee")
 
@@ -94,31 +182,18 @@ class LocalBANGeocoder:
         ville = normalize_text(parsed.get("ville_norm") or "")
         street = normalize_text(parsed.get("nom_voie") or "")
 
-        clauses: List[str] = []
-        params: List[Any] = []
-        if cp:
-            clauses.append("code_postal = ?")
-            params.append(cp)
-        if numero:
-            clauses.append("numero = ?")
-            params.append(numero)
-        if not cp and ville:
-            clauses.append("nom_commune_norm = ?")
-            params.append(ville)
-        if not clauses:
+        if not ((cp or ville) and (numero or street)):
             return LocalBanResult(
                 query=query,
                 database_status="OK",
                 existence_status="INSUFFICIENT_QUERY",
-                error="Code postal/commune ou numero insuffisant pour une recherche locale bornee",
+                error="Code postal/commune et numero/voie insuffisants pour une recherche locale bornee",
             )
 
-        sql = "SELECT id_ban, numero, rep, nom_voie, nom_voie_norm, code_postal, code_insee, nom_commune, nom_commune_norm, lon, lat, label FROM ban_addresses WHERE " + " AND ".join(clauses) + " LIMIT ?"
-        params.append(int(limit))
         try:
             with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
                 con.row_factory = sqlite3.Row
-                rows = con.execute(sql, params).fetchall()
+                rows = self._candidate_rows(con, cp, numero, ville, street, int(limit))
         except sqlite3.Error as exc:
             return LocalBanResult(query=query, database_status="ERROR", existence_status="UNAVAILABLE", error=str(exc))
 
@@ -149,7 +224,7 @@ class LocalBANGeocoder:
             )
             ranked.append((quality, street_sim, city_sim, number_match, suffix_match, cp_match, row))
 
-        ranked.sort(key=lambda x: x[0], reverse=True)
+        ranked.sort(key=lambda x: (-x[0], str(x[-1]["id_ban"] or "")))
         quality, street_sim, city_sim, number_match, suffix_match, cp_match, row = ranked[0]
 
         if numero:
