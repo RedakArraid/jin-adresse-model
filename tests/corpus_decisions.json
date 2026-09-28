@@ -1,0 +1,50 @@
+[
+  {
+    "id": "street_type_rue_boulevard",
+    "address_a": "187 rue de pontoise 75015 paris",
+    "address_b": "187 boulevard de pontoise 75015 paris",
+    "expected_decision": "DIFFERENTE",
+    "expected_reason": "CONFLIT_TYPE_VOIE",
+    "max_score": 8
+  },
+  {
+    "id": "street_type_route_avenue",
+    "address_a": "42 route de grenoble 69003 lyon",
+    "address_b": "42 avenue de grenoble 69003 lyon",
+    "expected_decision": "DIFFERENTE",
+    "expected_reason": "CONFLIT_TYPE_VOIE",
+    "max_score": 8
+  },
+  {
+    "id": "near_street_name_typo",
+    "address_a": "12 avenue jean jaures 75019 paris",
+    "address_b": "12 avenue jean jauresx 75019 paris",
+    "expected_decision": "A_CONTROLER",
+    "expected_reason": "NOM_VOIE_PROCHE_NON_IDENTIQUE",
+    "max_score": 89
+  },
+  {
+    "id": "boulevard_bld_alias",
+    "address_a": "187 bld de pontoise 75015 paris",
+    "address_b": "187 boulevard de pontoise 75015 paris",
+    "expected_decision": "MEME_ADRESSE",
+    "expected_reason": "STRUCTURE_IDENTIQUE",
+    "min_score": 99
+  },
+  {
+    "id": "house_number_conflict",
+    "address_a": "1 rue a 75001 paris",
+    "address_b": "999 rue a 75001 paris",
+    "expected_decision": "DIFFERENTE",
+    "expected_reason": "CONFLIT_NUMERO",
+    "max_score": 4
+  },
+  {
+    "id": "street_name_conflict",
+    "address_a": "5 rue de brest 29000 quimper",
+    "address_b": "5 rue de lorient 29000 quimper",
+    "expected_decision": "DIFFERENTE",
+    "expected_reason": "CONFLIT_NOM_VOIE",
+    "max_score": 15
+  }
+]
