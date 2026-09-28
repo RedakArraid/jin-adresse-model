@@ -11,9 +11,9 @@ Prototype de rapprochement d'adresses francaises avec interface Streamlit, API F
 
 Le scoring reste **hors ligne**. Internet n'est necessaire que pour telecharger/mettre a jour la BAN.
 
-## Correctifs V5.3
+## Correctifs V5.4
 
-La V5.3 renforce la securite des types de voie, des fautes proches et la couverture des abreviations :
+La V5.4 centralise aussi la politique de decision et les bornes de score :
 
 - `bv`, `bvd`, `bld` et `blvd` sont normalises en `boulevard` ;
 - un conflit explicite de type de voie (`rue` / `boulevard`, `route` / `avenue`) est classe `DIFFERENTE` ;
@@ -26,7 +26,9 @@ La V5.3 renforce la securite des types de voie, des fautes proches et la couvert
 - l'import BAN utilise une table de staging puis un remplacement transactionnel du departement ; un import interrompu laisse l'ancienne version intacte ;
 - la recherche BAN est bornee par CP/commune + numero/voie et ordonnee de maniere deterministe, au lieu d'un `LIMIT` arbitraire sur un grand code postal ;
 - `/health` lit en priorite les statistiques stockees dans `metadata` et le geocodeur met en cache l'etat tant que le fichier SQLite n'a pas change ;
-- la suite de non-regression couvre le parseur, les conflits structurels, la BAN, l'import atomique et l'API.
+- les plafonds/planchers et seuils de similarite sont centralises dans `app/model_config.json` sous `decision_policy` ;
+- le corpus `tests/corpus_decisions.json` fixe notamment `max_score = 89` pour les noms de voie proches mais non identiques ;
+- la suite de non-regression couvre le parseur, les conflits structurels, la BAN, l'import atomique, la configuration et l'API.
 
 ## 1. Lancer l'application
 
@@ -76,7 +78,7 @@ Le remplacement d'un departement est atomique : le nouveau fichier est d'abord c
 370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE
 ```
 
-En mode texte V5.3, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
+En mode texte V5.4, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
 
 ## 4. Regles structurelles
 
@@ -92,7 +94,24 @@ Le modele statistique produit toujours un score brut, expose dans `raw_model_sco
 
 Cette couche empeche un fuzzy matching eleve de masquer une contradiction metier.
 
-## 5. API
+## 5. Configuration de la politique de decision
+
+Les valeurs metier ne sont plus dispersees dans `matcher.py`. Elles sont centralisees dans :
+
+```text
+app/model_config.json -> decision_policy
+```
+
+Cette section contient notamment :
+
+- `score_caps` : plafonds pour les conflits et cas `A_CONTROLER` ;
+- `score_floors` : planchers pour les correspondances a haute confiance ;
+- `similarity` : seuils de similarite ville/voie ;
+- `ban` : poids de fusion et seuils specifiques a la BAN.
+
+Le cas `NOM_VOIE_PROCHE_NON_IDENTIQUE` est aligne a `89`, sous le seuil automatique de match `95`.
+
+## 6. API
 
 ```bash
 curl -X POST http://localhost:8000/score \
@@ -110,7 +129,7 @@ Etat BAN :
 curl http://localhost:8000/ban/status
 ```
 
-## 6. Tests
+## 7. Tests
 
 ```bash
 python -m unittest discover -s tests -v
@@ -118,11 +137,11 @@ python -m unittest discover -s tests -v
 
 La suite couvre notamment : rues `de Paris`/`de Lyon`, communes absentes de l'ancien dictionnaire, conflits de numero et suffixe, CP/communes differents, voies homonymes, recherche BAN, import interrompu et validation des endpoints FastAPI.
 
-## 7. Securite / donnees
+## 8. Securite / donnees
 
 Lors d'une comparaison, aucune adresse n'est envoyee vers une API externe. La BAN est interrogee dans SQLite local. Le reseau n'est utilise que lorsque `ban-loader` est lance explicitement.
 
-## 8. Arreter
+## 9. Arreter
 
 ```bash
 docker compose down
