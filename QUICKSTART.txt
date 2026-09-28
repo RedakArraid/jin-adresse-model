@@ -1,0 +1,24 @@
+COMPARATEUR D'ADRESSES - DEMARRAGE RAPIDE
+
+1) Decompresser le projet et entrer dans le dossier.
+
+2) Demarrer :
+   docker compose up --build -d
+
+3) Ouvrir l'interface :
+   http://localhost:8501
+
+4) Optionnel - importer la BAN locale du departement 13 :
+   docker compose run --rm ban-loader --departments 13
+
+   Plusieurs departements :
+   docker compose run --rm ban-loader --departments 13 75 69 93
+
+5) Documentation API :
+   http://localhost:8000/docs
+
+6) Arreter :
+   docker compose down
+
+Sans BAN importee, le moteur reste utilisable en mode texte V3.1.
+Avec BAN importee, le scoring ajoute une verification locale de l'existence et de l'identite de l'adresse.
