@@ -8,5 +8,3 @@ venv/
 data/ban/*
 !data/ban/.gitkeep
 .DS_Store
-
-app/modele_matching_adresses_v3.joblib
