@@ -18,7 +18,7 @@ from matcher import AddressMatcher
 
 class MatcherTests(unittest.TestCase):
     def test_text_only_saint_canadet(self):
-        m = AddressMatcher(APP / "modele_matching_adresses_v3.joblib", "/tmp/does-not-exist-ban.sqlite")
+        m = AddressMatcher(APP / "model_config.json", "/tmp/does-not-exist-ban.sqlite")
         r = m.score(
             "370 RTE DE ST CANADET 13100 AIX EN PROVENCE",
             "370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE",
@@ -50,7 +50,7 @@ class MatcherTests(unittest.TestCase):
             subprocess.run([
                 sys.executable, str(SCRIPTS / "download_ban.py"), "--db", str(db_path), "--from-file", str(csv_path)
             ], check=True, env={**os.environ, "PYTHONPATH": str(APP)})
-            m = AddressMatcher(APP / "modele_matching_adresses_v3.joblib", db_path)
+            m = AddressMatcher(APP / "model_config.json", db_path)
             r = m.score(
                 "370 RTE DE ST CANADET 13100 AIX EN PROVENCE",
                 "370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE",
