@@ -23,7 +23,7 @@ def get_matcher() -> AddressMatcher:
 
 app = FastAPI(
     title="Address Matcher",
-    version="5.2",
+    version="5.3",
     description="Comparaison d'adresses francaises avec regles structurelles + BAN locale optionnelle.",
 )
 
@@ -33,7 +33,7 @@ def health() -> Dict[str, Any]:
     matcher = get_matcher()
     return {
         "status": "ok",
-        "model_version": "V5.2-local-BAN",
+        "model_version": "V5.3-local-BAN",
         "ban": matcher.ban.stats(),
     }
 
