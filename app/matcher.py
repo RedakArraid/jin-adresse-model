@@ -133,7 +133,7 @@ class AddressMatcher:
             "parsed_B": text["parsed_B"],
             "ban_used": False,
             "ban_available": ban_available,
-            "model_version": "V5.1-local-BAN",
+            "model_version": "V5.2-local-BAN",
         }
         if not use_ban or not ban_available:
             if text["decision_reason"] == "MODELE_V3":
