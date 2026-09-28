@@ -1,5 +1,5 @@
 {
-  "version": "V5.3-json-local-BAN",
+  "version": "V5.4-json-local-BAN",
   "model_type": "logistic_regression",
   "intercept": -22.463984373194723,
   "features": [
@@ -72,8 +72,53 @@
   "notes": [
     "Portable production model exported to JSON coefficients.",
     "Postal-code boundary parsing provides national city extraction without a closed commune list.",
+    "Decision score caps, floors and similarity thresholds are centralized in decision_policy.",
     "Hard structural rules override the statistical score for number, suffix, street type, postal-code, city and strong street conflicts.",
     "Near-but-non-identical street names are routed to manual review instead of automatic match.",
     "num_abs_diff is non-positive; large number gaps can never increase the match score."
-  ]
+  ],
+  "runtime_version": "V5.4-local-BAN",
+  "decision_policy": {
+    "score_caps": {
+      "CONFLIT_CODE_POSTAL": 4,
+      "CONFLIT_COMMUNE": 4,
+      "COMMUNE_AMBIGUE": 80,
+      "CONFLIT_NUMERO": 4,
+      "CONFLIT_SUFFIXE_NUMERO": 4,
+      "CONFLIT_TYPE_VOIE": 8,
+      "CONFLIT_NOM_VOIE": 15,
+      "NOM_VOIE_PROCHE_NON_IDENTIQUE": 89
+    },
+    "score_floors": {
+      "STRUCTURE_IDENTIQUE": 99,
+      "MEME_ID_BAN": 99.9,
+      "BAN_LOCALE_COHERENTE": 98.5
+    },
+    "similarity": {
+      "city_conflict_below": 0.65,
+      "city_review_below": 0.88,
+      "same_location_city_min": 0.95,
+      "street_conflict_below": 0.72
+    },
+    "ban": {
+      "guarded_review_reasons": [
+        "NOM_VOIE_PROCHE_NON_IDENTIQUE",
+        "COMMUNE_AMBIGUE"
+      ],
+      "text_weight": 0.72,
+      "official_weight": 0.28,
+      "guarded_review_max_score": 89,
+      "same_street_min": 0.96,
+      "same_distance_max_m": 20,
+      "conflict_distance_min_m": 25,
+      "street_conflict_below": 0.78,
+      "street_conflict_distance_min_m": 80,
+      "strong_text_score_min": 90,
+      "text_conflict_review_max_score": 74,
+      "conflict_different_max_score": 20,
+      "official_ambiguous_below": 0.82,
+      "both_not_found_max_score": 90,
+      "existence_not_confirmed_max_score": 92
+    }
+  }
 }
