@@ -11,11 +11,14 @@ Prototype de rapprochement d'adresses francaises avec interface Streamlit, API F
 
 Le scoring reste **hors ligne**. Internet n'est necessaire que pour telecharger/mettre a jour la BAN.
 
-## Correctifs V5.2
+## Correctifs V5.3
 
-La V5.2 renforce la securite et la couverture de normalisation du prototype :
+La V5.3 renforce la securite des types de voie, des fautes proches et la couverture des abreviations :
 
-- `bv`, `bvd` et `blvd` sont normalises en `boulevard` ; une structure exactement identique (numero, suffixe, voie, CP, commune) obtient un score minimal de 99 % apres verification des conflits ;
+- `bv`, `bvd`, `bld` et `blvd` sont normalises en `boulevard` ;
+- un conflit explicite de type de voie (`rue` / `boulevard`, `route` / `avenue`) est classe `DIFFERENTE` ;
+- un nom de voie presque identique mais encore different apres normalisation est classe `A_CONTROLER` ;
+- une structure exactement identique (numero, suffixe, type de voie, nom de voie, CP, commune) obtient un score minimal de 99 % apres verification des conflits ;
 - le code postal sert de frontiere entre la voie et la commune ; `10 rue de Paris 75001 Paris` conserve bien `de paris` comme nom de voie ;
 - la commune est extraite structurellement apres le code postal, donc le mode sans BAN ne depend plus d'une liste fermee de communes ;
 - les conflits explicites de numero, suffixe (`14` / `14 bis`), code postal, commune et nom de voie ne peuvent plus etre compenses par le fuzzy matching ;
@@ -73,7 +76,7 @@ Le remplacement d'un departement est atomique : le nouveau fichier est d'abord c
 370 ROUTE DE SAINT-CANADET 13100 AIX-EN-PROVENCE
 ```
 
-En mode texte V5.2, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
+En mode texte V5.3, cet exemple reste classe `MEME_ADRESSE` avec un score eleve. Apres import du departement `13`, la BAN locale ajoute l'identifiant officiel, le libelle, les coordonnees et les controles de coherence.
 
 ## 4. Regles structurelles
 
@@ -81,10 +84,11 @@ Le modele statistique produit toujours un score brut, expose dans `raw_model_sco
 
 - deux numeros explicites differents -> `DIFFERENTE` ;
 - meme numero mais suffixe different ou manquant (`14` / `14 bis`) -> `DIFFERENTE` ;
+- types de voie explicites differents -> `DIFFERENTE` ;
 - codes postaux explicites differents -> `DIFFERENTE` ;
 - communes clairement incompatibles -> `DIFFERENTE` ;
 - noms de voie clairement differents a localisation egale -> `DIFFERENTE` ;
-- noms de voie proches mais ambigus -> `A_CONTROLER`.
+- noms de voie proches mais non identiques apres normalisation -> `A_CONTROLER`.
 
 Cette couche empeche un fuzzy matching eleve de masquer une contradiction metier.
 
