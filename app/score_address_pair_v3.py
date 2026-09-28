@@ -12,7 +12,7 @@ STREET_TYPES = [
     'cite','clos','parc','rondpoint','lieudit','autoroute'
 ]
 TYPE_ALIAS_MAP = {
-    'r':'rue','av':'avenue','ave':'avenue','avn':'avenue','bd':'boulevard','boul':'boulevard',
+    'r':'rue','av':'avenue','ave':'avenue','avn':'avenue','bd':'boulevard','boul':'boulevard','bv':'boulevard','bvd':'boulevard','blvd':'boulevard',
     'rte':'route','rt':'route','chem':'chemin','ch':'chemin','chm':'chemin','imp':'impasse',
     'pl':'place','all':'allee','pass':'passage','pge':'passage','faub':'faubourg','fg':'faubourg',
     'sq':'square','qai':'quai','crs':'cours','cour':'cours','voi':'voie','sente':'sentier','sent':'sentier',
