@@ -14,6 +14,7 @@ SCRIPT = ROOT / "scripts" / "download_ban.py"
 sys.path.insert(0, str(APP))
 
 from ban_local import LocalBANGeocoder
+from matcher import AddressMatcher
 from score_address_pair_v3 import parse_address
 
 spec = importlib.util.spec_from_file_location("download_ban", SCRIPT)
@@ -77,6 +78,29 @@ class BanTests(unittest.TestCase):
         g = LocalBANGeocoder(self.db)
         r = g.lookup("999 rue Inconnue 75001 Paris", parse_address("999 rue Inconnue 75001 Paris", {}))
         self.assertEqual(r.existence_status, "NOT_FOUND")
+
+    def test_near_street_typo_remains_review_with_ban(self):
+        rows = [{
+            "id_ban":"JAURES-12",
+            "numero":"12",
+            "rep":"",
+            "nom_voie":"Avenue Jean Jaures",
+            "code_postal":"75019",
+            "code_insee":"75056",
+            "nom_commune":"Paris",
+            "lon":"2.38",
+            "lat":"48.88",
+        }]
+        self.import_rows(rows=rows, dep="75")
+        m = AddressMatcher(APP / "model_config.json", self.db)
+        r = m.score(
+            "12 avenue jean jaures 75019 paris",
+            "12 avenue jean jauresx 75019 paris",
+            use_ban=True,
+        )
+        self.assertEqual(r["decision"], "A_CONTROLER")
+        self.assertEqual(r["decision_reason"], "NOM_VOIE_PROCHE_NON_IDENTIQUE")
+        self.assertLessEqual(r["score_final"], 89.0)
 
     def test_stats_come_from_metadata(self):
         self.import_rows()
