@@ -30,6 +30,7 @@ class AddressMatcher:
         cpa, cpb = pa.get("code_postal", ""), pb.get("code_postal", "")
         ca, cb = pa.get("ville_norm", ""), pb.get("ville_norm", "")
         va, vb = pa.get("nom_voie", ""), pb.get("nom_voie", "")
+        ta, tb = pa.get("type_voie", ""), pb.get("type_voie", "")
 
         if cpa and cpb and cpa != cpb:
             return "DIFFERENTE", "CONFLIT_CODE_POSTAL", 4.0
@@ -47,6 +48,9 @@ class AddressMatcher:
         if numa and numb and numa == numb and sa != sb and (sa or sb):
             return "DIFFERENTE", "CONFLIT_SUFFIXE_NUMERO", 4.0
 
+        if ta and tb and ta != tb:
+            return "DIFFERENTE", "CONFLIT_TYPE_VOIE", 8.0
+
         if va and vb and va != vb:
             street_set = safe_token_set(va, vb)
             street_ratio = safe_ratio(va, vb)
@@ -56,10 +60,11 @@ class AddressMatcher:
                 and (not ca or not cb or safe_ratio(ca, cb) >= 0.95)
                 and (not numa or not numb or numa == numb)
             )
+            same_tokens = sorted(va.split()) == sorted(vb.split())
             if strong_location and max(street_set, street_ratio) < 0.72:
                 return "DIFFERENTE", "CONFLIT_NOM_VOIE", 15.0
-            if strong_location and street_set < 0.90 and street_jac <= 0.60:
-                return "A_CONTROLER", "NOM_VOIE_AMBIGU", 85.0
+            if strong_location and not same_tokens:
+                return "A_CONTROLER", "NOM_VOIE_PROCHE_NON_IDENTIQUE", 89.0
 
         return None
 
@@ -72,6 +77,7 @@ class AddressMatcher:
         """
         required_pairs = (
             (pa.get("numero", ""), pb.get("numero", "")),
+            (pa.get("type_voie", ""), pb.get("type_voie", "")),
             (pa.get("nom_voie", ""), pb.get("nom_voie", "")),
             (pa.get("code_postal", ""), pb.get("code_postal", "")),
             (pa.get("ville_norm", ""), pb.get("ville_norm", "")),
@@ -133,7 +139,7 @@ class AddressMatcher:
             "parsed_B": text["parsed_B"],
             "ban_used": False,
             "ban_available": ban_available,
-            "model_version": "V5.2-local-BAN",
+            "model_version": "V5.3-local-BAN",
         }
         if not use_ban or not ban_available:
             if text["decision_reason"] == "MODELE_V3":
@@ -143,6 +149,11 @@ class AddressMatcher:
         ga = self.ban.lookup(address_a, text["parsed_A"])
         gb = self.ban.lookup(address_b, text["parsed_B"])
         pf = official_pair_features(ga, gb)
+
+        hard_text_conflict = (
+            text["decision"] == "DIFFERENTE"
+            and str(text["decision_reason"]).startswith("CONFLIT_")
+        )
         text_p = text["score"] / 100.0
         official_p = pf["official_pair_score"]
         final_p = 0.72 * text_p + 0.28 * official_p if pf["usable_both"] else text_p
@@ -151,7 +162,11 @@ class AddressMatcher:
 
         exact_a = ga.existence_status == "CONFIRMED_HOUSENUMBER"
         exact_b = gb.existence_status == "CONFIRMED_HOUSENUMBER"
-        if pf["same_official_id"] and exact_a and exact_b:
+        if hard_text_conflict:
+            decision = "DIFFERENTE"
+            final_p = min(final_p, text_p)
+            reason = text["decision_reason"]
+        elif pf["same_official_id"] and exact_a and exact_b:
             decision = "MEME_ADRESSE"
             final_p = max(final_p, 0.999)
             reason = "MEME_ID_BAN"
