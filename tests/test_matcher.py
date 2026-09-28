@@ -27,6 +27,33 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual(r["decision"], "MEME_ADRESSE")
         self.assertGreaterEqual(r["score_final"], 95)
 
+    def test_bv_is_boulevard(self):
+        r = self.score(
+            "187 bv de pontoise 95370 montigny les cormeilles",
+            "187 boulevard de pontoise 95370 montigny-lès-cormeilles",
+        )
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+        self.assertGreaterEqual(r["score_final"], 99.0)
+        self.assertEqual(r["decision_reason"], "STRUCTURE_IDENTIQUE")
+        self.assertEqual(r["parsed_A"]["type_voie"], "boulevard")
+        self.assertEqual(r["parsed_A"]["nom_voie"], "de pontoise")
+
+    def test_bvd_is_boulevard(self):
+        r = self.score(
+            "187 bvd de pontoise 95370 montigny les cormeilles",
+            "187 boulevard de pontoise 95370 montigny les cormeilles",
+        )
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+        self.assertGreaterEqual(r["score_final"], 99.0)
+
+    def test_exact_structural_rule_does_not_override_suffix_conflict(self):
+        r = self.score(
+            "187 bis bv de pontoise 95370 montigny les cormeilles",
+            "187 boulevard de pontoise 95370 montigny les cormeilles",
+        )
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_SUFFIXE_NUMERO")
+
     def test_city_name_inside_street_no_false_positive(self):
         r = self.score("10 rue de Paris 75001 Paris", "10 rue de Lyon 75001 Paris")
         self.assertEqual(r["parsed_A"]["nom_voie"], "de paris")
