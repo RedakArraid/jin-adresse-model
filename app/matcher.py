@@ -154,6 +154,10 @@ class AddressMatcher:
             text["decision"] == "DIFFERENTE"
             and str(text["decision_reason"]).startswith("CONFLIT_")
         )
+        guarded_text_review = text["decision_reason"] in {
+            "NOM_VOIE_PROCHE_NON_IDENTIQUE",
+            "COMMUNE_AMBIGUE",
+        }
         text_p = text["score"] / 100.0
         official_p = pf["official_pair_score"]
         final_p = 0.72 * text_p + 0.28 * official_p if pf["usable_both"] else text_p
@@ -165,6 +169,10 @@ class AddressMatcher:
         if hard_text_conflict:
             decision = "DIFFERENTE"
             final_p = min(final_p, text_p)
+            reason = text["decision_reason"]
+        elif guarded_text_review:
+            decision = "A_CONTROLER"
+            final_p = min(final_p, 0.89)
             reason = text["decision_reason"]
         elif pf["same_official_id"] and exact_a and exact_b:
             decision = "MEME_ADRESSE"
