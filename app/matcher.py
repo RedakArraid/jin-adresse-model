@@ -4,9 +4,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-import joblib
-import numpy as np
-import pandas as pd
+import json
+import math
 
 from ban_local import LocalBANGeocoder, official_pair_features
 from score_address_pair_v3 import (
@@ -20,29 +19,20 @@ from score_address_pair_v3 import (
 
 class AddressMatcher:
     def __init__(self, model_path: str | Path | None = None, ban_db_path: str | Path | None = None):
-        self.model_path = Path(model_path or os.environ.get("MODEL_PATH", "/app/modele_matching_adresses_v3.joblib"))
-        self.pkg = joblib.load(self.model_path)
+        self.model_path = Path(model_path or os.environ.get("MODEL_PATH", "/app/model_config.json"))
+        self.pkg = json.loads(self.model_path.read_text(encoding="utf-8"))
         self.city_map = make_city_map(self.pkg["cities"])
         self.ban = LocalBANGeocoder(ban_db_path)
 
     def text_score(self, address_a: str, address_b: str) -> Dict[str, Any]:
         f, pa, pb = make_features(address_a, address_b, self.city_map)
-        # The production artifact can be either the full V3 package (with TF-IDF +
-        # calibration) or the compact V5-lite package committed to this repository.
-        if "vectorizer" in self.pkg:
-            A = self.pkg["vectorizer"].transform([normalize_text(address_a)])
-            B = self.pkg["vectorizer"].transform([normalize_text(address_b)])
-            f["char_tfidf_cosine"] = float(A.multiply(B).sum())
-        spec = self.pkg["text_model"]
-        X = pd.DataFrame([[f[x] for x in spec["features"]]], columns=spec["features"])
-        raw = float(spec["model"].predict_proba(X)[:, 1][0])
-        if "calibrator" in spec:
-            p = float(np.clip(spec["calibrator"].transform([raw])[0], 0, 1))
-        else:
-            p = float(np.clip(raw, 0, 1))
-        if p >= spec["threshold_match"]:
+        z = float(self.pkg["intercept"])
+        for name in self.pkg["features"]:
+            z += float(self.pkg["coefficients"][name]) * float(f.get(name, 0.0) or 0.0)
+        p = 1.0 / (1.0 + math.exp(-max(min(z, 60.0), -60.0)))
+        if p >= self.pkg["threshold_match"]:
             decision = "MEME_ADRESSE"
-        elif p <= spec["threshold_different"]:
+        elif p <= self.pkg["threshold_different"]:
             decision = "DIFFERENTE"
         else:
             decision = "A_CONTROLER"
@@ -64,8 +54,8 @@ class AddressMatcher:
             "decision_reason": reason,
             "parsed_A": pa,
             "parsed_B": pb,
-            "threshold_different": round(spec["threshold_different"] * 100, 2),
-            "threshold_match": round(spec["threshold_match"] * 100, 2),
+            "threshold_different": round(self.pkg["threshold_different"] * 100, 2),
+            "threshold_match": round(self.pkg["threshold_match"] * 100, 2),
         }
 
     def score(self, address_a: str, address_b: str, use_ban: bool = True) -> Dict[str, Any]:
