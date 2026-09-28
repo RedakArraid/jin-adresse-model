@@ -12,7 +12,7 @@ STREET_TYPES = [
     'cite','clos','parc','rondpoint','lieudit','autoroute'
 ]
 TYPE_ALIAS_MAP = {
-    'r':'rue','av':'avenue','ave':'avenue','avn':'avenue','bd':'boulevard','boul':'boulevard','bv':'boulevard','bvd':'boulevard','blvd':'boulevard',
+    'r':'rue','av':'avenue','ave':'avenue','avn':'avenue','bd':'boulevard','boul':'boulevard','bv':'boulevard','bvd':'boulevard','bld':'boulevard','blvd':'boulevard',
     'rte':'route','rt':'route','chem':'chemin','ch':'chemin','chm':'chemin','imp':'impasse',
     'pl':'place','all':'allee','pass':'passage','pge':'passage','faub':'faubourg','fg':'faubourg',
     'sq':'square','qai':'quai','crs':'cours','cour':'cours','voi':'voie','sente':'sentier','sent':'sentier',
@@ -221,6 +221,7 @@ def make_features(raw_a, raw_b, city_map=None, ext_a=None, ext_b=None):
         'suffix_missing_one': int(bool(sa) != bool(sb)),
         'type_present_both': int(bool(pa['type_voie']) and bool(pb['type_voie'])),
         'type_exact': int(bool(pa['type_voie']) and bool(pb['type_voie']) and pa['type_voie'] == pb['type_voie']),
+        'type_conflict': int(bool(pa['type_voie']) and bool(pb['type_voie']) and pa['type_voie'] != pb['type_voie']),
         'cp_present_both': int(bool(cpa) and bool(cpb)),
         'cp_exact': int(bool(cpa) and bool(cpb) and cpa == cpb),
         'cp_conflict': int(bool(cpa) and bool(cpb) and cpa != cpb),
