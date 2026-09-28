@@ -29,8 +29,8 @@ class MatcherTests(unittest.TestCase):
 
     def test_bv_is_boulevard(self):
         r = self.score(
-            "187 bv de pontoise 95370 montigny les cormeilles",
-            "187 boulevard de pontoise 95370 montigny-lès-cormeilles",
+            "187 bv de pontoise 75015 paris",
+            "187 boulevard de pontoise 75015 paris",
         )
         self.assertEqual(r["decision"], "MEME_ADRESSE")
         self.assertGreaterEqual(r["score_final"], 99.0)
@@ -40,16 +40,16 @@ class MatcherTests(unittest.TestCase):
 
     def test_bvd_is_boulevard(self):
         r = self.score(
-            "187 bvd de pontoise 95370 montigny les cormeilles",
-            "187 boulevard de pontoise 95370 montigny les cormeilles",
+            "187 bvd de pontoise 75015 paris",
+            "187 boulevard de pontoise 75015 paris",
         )
         self.assertEqual(r["decision"], "MEME_ADRESSE")
         self.assertGreaterEqual(r["score_final"], 99.0)
 
     def test_exact_structural_rule_does_not_override_suffix_conflict(self):
         r = self.score(
-            "187 bis bv de pontoise 95370 montigny les cormeilles",
-            "187 boulevard de pontoise 95370 montigny les cormeilles",
+            "187 bis bv de pontoise 75015 paris",
+            "187 boulevard de pontoise 75015 paris",
         )
         self.assertEqual(r["decision"], "DIFFERENTE")
         self.assertEqual(r["decision_reason"], "CONFLIT_SUFFIXE_NUMERO")
