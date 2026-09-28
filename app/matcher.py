@@ -63,6 +63,23 @@ class AddressMatcher:
 
         return None
 
+    @staticmethod
+    def _strong_exact_match(pa: Dict[str, str], pb: Dict[str, str]) -> bool:
+        """High-confidence match only when all key structural fields agree.
+
+        Conflict rules are evaluated first, so this rule cannot override an
+        explicit number, suffix, postal-code, city or strong street conflict.
+        """
+        required_pairs = (
+            (pa.get("numero", ""), pb.get("numero", "")),
+            (pa.get("nom_voie", ""), pb.get("nom_voie", "")),
+            (pa.get("code_postal", ""), pb.get("code_postal", "")),
+            (pa.get("ville_norm", ""), pb.get("ville_norm", "")),
+        )
+        if not all(a and b and a == b for a, b in required_pairs):
+            return False
+        return pa.get("suffixe", "") == pb.get("suffixe", "")
+
     def text_score(self, address_a: str, address_b: str) -> Dict[str, Any]:
         f, pa, pb = make_features(address_a, address_b, self.city_map)
         z = float(self.pkg["intercept"])
@@ -85,6 +102,10 @@ class AddressMatcher:
             decision = rule_decision
             reason = rule_reason
             score = min(score, score_cap)
+        elif self._strong_exact_match(pa, pb):
+            decision = "MEME_ADRESSE"
+            reason = "STRUCTURE_IDENTIQUE"
+            score = max(score, 99.0)
 
         return {
             "score": round(score, 2),
