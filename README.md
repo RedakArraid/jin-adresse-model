@@ -289,6 +289,7 @@ Voir [docs/TESTING.md](docs/TESTING.md).
 ├── Dockerfile
 ├── Makefile
 ├── QUICKSTART.txt
+├── CHANGELOG.md
 └── requirements.txt
 ```
 
@@ -300,6 +301,7 @@ Voir [docs/TESTING.md](docs/TESTING.md).
 - [BAN locale](docs/BAN.md)
 - [Tests et non-regression](docs/TESTING.md)
 - [Exploitation / Docker](docs/OPERATIONS.md)
+- [Changelog](CHANGELOG.md)
 
 ## Securite et confidentialite
 
