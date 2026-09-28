@@ -1,5 +1,5 @@
 {
-  "version": "V5.2-json-local-BAN",
+  "version": "V5.3-json-local-BAN",
   "model_type": "logistic_regression",
   "intercept": -22.463984373194723,
   "features": [
@@ -72,7 +72,8 @@
   "notes": [
     "Portable production model exported to JSON coefficients.",
     "Postal-code boundary parsing provides national city extraction without a closed commune list.",
-    "Hard structural rules override the statistical score for number, suffix, postal-code, city and strong street conflicts.",
+    "Hard structural rules override the statistical score for number, suffix, street type, postal-code, city and strong street conflicts.",
+    "Near-but-non-identical street names are routed to manual review instead of automatic match.",
     "num_abs_diff is non-positive; large number gaps can never increase the match score."
   ]
 }
