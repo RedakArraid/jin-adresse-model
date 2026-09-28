@@ -1,14 +1,38 @@
 {
-  "version": "V5-json-local-BAN",
+  "version": "V5.1-json-local-BAN",
   "model_type": "logistic_regression",
   "intercept": -22.463984373194723,
   "features": [
-    "norm_exact","sim_full_ratio","sim_full_wratio","sim_token_set","sim_token_sort",
-    "token_jaccard","length_ratio","token_count_diff","one_contains_other","sim_street",
-    "street_jaccard","sim_city","num_present_both","num_exact","num_abs_diff","num_near_1",
-    "num_conflict","suffix_present_any","suffix_exact","suffix_conflict","suffix_missing_one",
-    "type_present_both","type_exact","cp_present_both","cp_exact","cp_conflict",
-    "cp_dept_exact","city_present_both","city_exact","city_conflict"
+    "norm_exact",
+    "sim_full_ratio",
+    "sim_full_wratio",
+    "sim_token_set",
+    "sim_token_sort",
+    "token_jaccard",
+    "length_ratio",
+    "token_count_diff",
+    "one_contains_other",
+    "sim_street",
+    "street_jaccard",
+    "sim_city",
+    "num_present_both",
+    "num_exact",
+    "num_abs_diff",
+    "num_near_1",
+    "num_conflict",
+    "suffix_present_any",
+    "suffix_exact",
+    "suffix_conflict",
+    "suffix_missing_one",
+    "type_present_both",
+    "type_exact",
+    "cp_present_both",
+    "cp_exact",
+    "cp_conflict",
+    "cp_dept_exact",
+    "city_present_both",
+    "city_exact",
+    "city_conflict"
   ],
   "coefficients": {
     "norm_exact": 2.6471382885031938,
@@ -25,7 +49,7 @@
     "sim_city": 0.6381424371110918,
     "num_present_both": -0.5684840357532966,
     "num_exact": 4.193203488761347,
-    "num_abs_diff": 0.007596991832141619,
+    "num_abs_diff": -0.02,
     "num_near_1": 2.14688083845236,
     "num_conflict": -4.761687524522681,
     "suffix_present_any": -0.17229379970960462,
@@ -44,14 +68,11 @@
   },
   "threshold_different": 0.05,
   "threshold_match": 0.95,
-  "cities": [
-    "Paris","Drancy","Bobigny","Clichy","Saint-Denis","Montreuil","Lyon","Marseille",
-    "Toulouse","Lille","Nantes","Bordeaux","Strasbourg","Rennes","Aix-en-Provence",
-    "Aix-les-Bains","Nice","Grenoble","Dijon","Reims","Le Havre","Angers","Nîmes",
-    "Clermont-Ferrand","Saint-Étienne","Tours","Metz","Nancy","Rouen","Montpellier"
-  ],
+  "cities": [],
   "notes": [
     "Portable production model exported to JSON coefficients.",
-    "Thresholds favor high-confidence automatic decisions; ambiguous pairs are routed to A_CONTROLER."
+    "Postal-code boundary parsing provides national city extraction without a closed commune list.",
+    "Hard structural rules override the statistical score for number, suffix, postal-code, city and strong street conflicts.",
+    "num_abs_diff is non-positive; large number gaps can never increase the match score."
   ]
 }
