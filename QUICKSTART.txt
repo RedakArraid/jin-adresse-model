@@ -1,4 +1,4 @@
-COMPARATEUR D'ADRESSES - V5.4 - DEMARRAGE RAPIDE
+COMPARATEUR D'ADRESSES - V6.0 - DEMARRAGE RAPIDE
 
 1) Cloner le depot et entrer dans le dossier
 
@@ -25,14 +25,14 @@ COMPARATEUR D'ADRESSES - V5.4 - DEMARRAGE RAPIDE
 
 4) Essayer le moteur sans BAN
 
-   Le moteur fonctionne directement en mode texte V5.4.
+   Le moteur fonctionne directement en mode structurel V6.0.
 
    Il applique :
-   - normalisation des abreviations ;
-   - parsing numero / suffixe / type de voie / voie / CP / commune ;
-   - modele logistique local ;
-   - regles structurelles prioritaires ;
-   - politique de decision centralisee dans app/model_config.json.
+   - canonicalisation de chaque adresse ;
+   - preuves par champ ;
+   - modele logistique local pour la similarite ;
+   - moteur de decision separe ;
+   - politique centralisee dans app/model_config.json.
 
 
 5) Optionnel - importer la BAN locale
