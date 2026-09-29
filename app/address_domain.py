@@ -178,6 +178,14 @@ class AddressComparator:
             return FieldEvidence("EXACT", left, right, 1.0)
         return FieldEvidence("CONFLICT", left, right, 0.0)
 
+    @staticmethod
+    def _suffix(left: str, right: str) -> FieldEvidence:
+        if left == right:
+            return FieldEvidence("EXACT", left, right, 1.0)
+        if not left or not right:
+            return FieldEvidence("CONFLICT", left, right, 0.0, "suffix_missing_one")
+        return FieldEvidence("CONFLICT", left, right, 0.0)
+
     def _city(self, a: CanonicalAddress, b: CanonicalAddress) -> FieldEvidence:
         left, right = a.city, b.city
         if not left and not right:
@@ -221,7 +229,7 @@ class AddressComparator:
 
     def compare(self, a: CanonicalAddress, b: CanonicalAddress) -> AddressEvidence:
         number = self._simple(a.number, b.number)
-        suffix = self._simple(a.suffix, b.suffix, empty_equal=True)
+        suffix = self._suffix(a.suffix, b.suffix)
         street_type = self._simple(a.street_type, b.street_type)
         street_name = self._street(a.street_name, b.street_name)
         postcode = self._simple(a.postcode, b.postcode)
