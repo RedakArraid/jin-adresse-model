@@ -38,6 +38,21 @@ def _street_anchor(street: str) -> str:
 
 
 @dataclass
+class LocalityResolution:
+    status: str
+    postcode: str
+    city_input: str
+    city_norm: str = ""
+    city_label: str = ""
+    city_code: str = ""
+    similarity: float = 0.0
+    candidate_count: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class LocalBanResult:
     query: str
     database_status: str = "UNAVAILABLE"
@@ -171,6 +186,83 @@ class LocalBANGeocoder:
                     (ville, anchor, len(street), limit),
                 ).fetchall()
         return []
+
+    def resolve_locality(
+        self,
+        postcode: str,
+        city_input: str,
+        min_similarity: float = 0.90,
+        ambiguity_margin: float = 0.03,
+        limit: int = 100,
+    ) -> LocalityResolution:
+        postcode = str(postcode or "").strip()
+        city_input_norm = normalize_text(city_input or "")
+        if not self.available() or not postcode or not city_input_norm:
+            return LocalityResolution(
+                status="UNAVAILABLE",
+                postcode=postcode,
+                city_input=city_input_norm,
+            )
+
+        try:
+            with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
+                rows = con.execute(
+                    """
+                    SELECT code_insee, nom_commune, nom_commune_norm
+                    FROM ban_addresses
+                    WHERE code_postal = ?
+                    GROUP BY code_insee, nom_commune, nom_commune_norm
+                    ORDER BY nom_commune_norm
+                    LIMIT ?
+                    """,
+                    (postcode, int(limit)),
+                ).fetchall()
+        except sqlite3.Error:
+            return LocalityResolution(
+                status="UNAVAILABLE",
+                postcode=postcode,
+                city_input=city_input_norm,
+            )
+
+        if not rows:
+            return LocalityResolution(
+                status="NOT_FOUND",
+                postcode=postcode,
+                city_input=city_input_norm,
+            )
+
+        candidates = []
+        for code_insee, city_label, city_norm in rows:
+            norm = city_norm or normalize_text(city_label or "")
+            similarity = max(
+                fuzz.ratio(city_input_norm, norm) / 100.0,
+                fuzz.WRatio(city_input_norm, norm) / 100.0,
+            )
+            candidates.append((similarity, norm, city_label or "", code_insee or ""))
+
+        candidates.sort(key=lambda x: (-x[0], x[1], x[3]))
+        top = candidates[0]
+        second_score = candidates[1][0] if len(candidates) > 1 else 0.0
+
+        if city_input_norm == top[1]:
+            status = "EXACT"
+        elif top[0] >= min_similarity and (len(candidates) == 1 or top[0] - second_score >= ambiguity_margin):
+            status = "TYPO_CORRECTED"
+        elif top[0] >= min_similarity:
+            status = "AMBIGUOUS"
+        else:
+            status = "NOT_FOUND"
+
+        return LocalityResolution(
+            status=status,
+            postcode=postcode,
+            city_input=city_input_norm,
+            city_norm=top[1],
+            city_label=top[2],
+            city_code=top[3],
+            similarity=round(float(top[0]), 6),
+            candidate_count=len(candidates),
+        )
 
     def lookup(self, query: str, parsed: Dict[str, str], limit: int = 250) -> LocalBanResult:
         if not self.available():
