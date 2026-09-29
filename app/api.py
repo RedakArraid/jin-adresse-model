@@ -23,8 +23,8 @@ def get_matcher() -> AddressMatcher:
 
 app = FastAPI(
     title="Address Matcher",
-    version="5.4",
-    description="Comparaison d'adresses francaises avec regles structurelles + BAN locale optionnelle.",
+    version="6.0",
+    description="Comparaison d'adresses francaises avec canonicalisation V6, preuves par champ et BAN locale optionnelle.",
 )
 
 
