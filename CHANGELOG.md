@@ -1,5 +1,40 @@
 # Changelog
 
+## V6.0
+
+### Architecture
+
+- ajout de `CanonicalAddress`, `FieldEvidence` et `AddressEvidence` ;
+- ajout de `AddressResolver`, `AddressComparator` et `DecisionEngine` ;
+- `AddressMatcher` devient principalement un orchestrateur.
+
+### Resolution locale
+
+- resolution code postal / commune depuis la BAN locale ;
+- recuperation du code INSEE ;
+- statuts `EXACT`, `TYPO_CORRECTED`, `AMBIGUOUS`, `NOT_FOUND`, `UNAVAILABLE`.
+
+### Decision
+
+- separation `similarity_score` / `confidence_score` ;
+- preuves par champ ;
+- commune proche non identique -> `A_CONTROLER` sans canonicalisation ;
+- conflits durs prioritaires sur les fautes probables ;
+- structure canonique exacte -> match haute confiance.
+
+### API et UI
+
+- ajout de `canonical_A`, `canonical_B`, `field_evidence` ;
+- ajout de `score_text`, `decision_text` ;
+- champs V3 historiques conserves pour compatibilite ;
+- interface V6 affiche similarite, confiance et preuves par champ.
+
+### Tests
+
+- ajout de `test_v6_structure.py` ;
+- corpus enrichi avec un cas de commune proche ;
+- test de correction locale via mini-BAN.
+
 ## V5.4
 
 ### Configuration
