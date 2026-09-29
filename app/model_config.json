@@ -1,5 +1,5 @@
 {
-  "version": "V5.4-json-local-BAN",
+  "version": "V6.0-json-local-BAN",
   "model_type": "logistic_regression",
   "intercept": -22.463984373194723,
   "features": [
@@ -70,14 +70,15 @@
   "threshold_match": 0.95,
   "cities": [],
   "notes": [
-    "Portable production model exported to JSON coefficients.",
+    "V6 separates canonicalization, field evidence, statistical similarity and decision confidence.",
     "Postal-code boundary parsing provides national city extraction without a closed commune list.",
-    "Decision score caps, floors and similarity thresholds are centralized in decision_policy.",
-    "Hard structural rules override the statistical score for number, suffix, street type, postal-code, city and strong street conflicts.",
-    "Near-but-non-identical street names are routed to manual review instead of automatic match.",
+    "Local BAN data can canonicalize postcode/city pairs and provide INSEE codes without a remote geocoding API.",
+    "Decision score caps, floors and resolver thresholds are centralized in decision_policy.",
+    "Hard structural conflicts override the statistical similarity score.",
+    "Near-but-non-identical city or street names are routed to manual review unless local canonicalization resolves them.",
     "num_abs_diff is non-positive; large number gaps can never increase the match score."
   ],
-  "runtime_version": "V5.4-local-BAN",
+  "runtime_version": "V6.0-local-BAN",
   "decision_policy": {
     "score_caps": {
       "CONFLIT_CODE_POSTAL": 4,
@@ -87,7 +88,8 @@
       "CONFLIT_SUFFIXE_NUMERO": 4,
       "CONFLIT_TYPE_VOIE": 8,
       "CONFLIT_NOM_VOIE": 15,
-      "NOM_VOIE_PROCHE_NON_IDENTIQUE": 89
+      "NOM_VOIE_PROCHE_NON_IDENTIQUE": 89,
+      "COMMUNE_PROCHE_NON_IDENTIQUE": 89
     },
     "score_floors": {
       "STRUCTURE_IDENTIQUE": 99,
@@ -96,13 +98,12 @@
     },
     "similarity": {
       "city_conflict_below": 0.65,
-      "city_review_below": 0.88,
-      "same_location_city_min": 0.95,
       "street_conflict_below": 0.72
     },
     "ban": {
       "guarded_review_reasons": [
         "NOM_VOIE_PROCHE_NON_IDENTIQUE",
+        "COMMUNE_PROCHE_NON_IDENTIQUE",
         "COMMUNE_AMBIGUE"
       ],
       "text_weight": 0.72,
@@ -119,6 +120,11 @@
       "official_ambiguous_below": 0.82,
       "both_not_found_max_score": 90,
       "existence_not_confirmed_max_score": 92
+    },
+    "resolver": {
+      "city_auto_correct_min": 0.9,
+      "city_ambiguity_margin": 0.03,
+      "max_city_candidates": 100
     }
   }
 }
