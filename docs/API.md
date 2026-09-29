@@ -1,65 +1,22 @@
-# API V5.4
+# API V6
 
-## Adresse locale
+Base locale : `http://localhost:8000`
 
-Par defaut :
-
-```text
-http://localhost:8000
-```
-
-Documentation interactive :
-
-```text
-http://localhost:8000/docs
-```
+Swagger : `http://localhost:8000/docs`
 
 ## GET /health
 
-Retourne l'etat de l'application.
+Retourne `status`, `model_version` et l'etat de la BAN locale.
 
-Exemple :
-
-```json
-{
-  "status": "ok",
-  "model_version": "V5.4-local-BAN",
-  "ban": {
-    "available": false,
-    "path": "/data/ban/ban.sqlite",
-    "rows": 0,
-    "departments": []
-  }
-}
-```
-
-La version vient de `app/model_config.json`.
+Version attendue : `V6.0-local-BAN`.
 
 ## GET /ban/status
 
-Retourne les statistiques BAN.
-
-Lorsque la BAN n'est pas presente :
-
-```json
-{
-  "available": false,
-  "path": "/data/ban/ban.sqlite",
-  "rows": 0,
-  "departments": []
-}
-```
-
-Lorsque la BAN est chargee, la reponse peut aussi contenir :
-
-- `rows`
-- `departments`
-- `metadata`
-- `last_update`.
+Retourne les statistiques et metadonnees de la base SQLite locale.
 
 ## POST /score
 
-### Requete
+Exemple de requete :
 
 ```json
 {
@@ -69,192 +26,73 @@ Lorsque la BAN est chargee, la reponse peut aussi contenir :
 }
 ```
 
-Contraintes :
+## Champs V6
 
-- `address_a` : chaine de 3 a 500 caracteres ;
-- `address_b` : chaine de 3 a 500 caracteres ;
-- les espaces en debut/fin sont retires ;
-- `use_ban` : booleen, valeur par defaut `true`.
+### similarity_score
 
-### Reponse principale
+Score brut du modele statistique.
 
-Exemple simplifie :
+### confidence_score
 
-```json
-{
-  "score_final": 99.66,
-  "decision": "MEME_ADRESSE",
-  "decision_reason": "STRUCTURE_IDENTIQUE",
-  "score_text_v3": 99.66,
-  "raw_model_score": 99.66,
-  "parsed_A": {},
-  "parsed_B": {},
-  "ban_used": false,
-  "ban_available": false,
-  "model_version": "V5.4-local-BAN"
-}
-```
+Score final apres canonicalisation, preuves par champ, regles de decision et eventuelle BAN.
 
-Selon le contexte, le score exact peut varier si la configuration evolue.
+### score_final
 
-### Champs
+Alias compatible de `confidence_score`.
 
-#### score_final
+### canonical_A / canonical_B
 
-Score final apres regles et eventuelle fusion BAN.
+Representations canoniques des deux adresses, avec signatures et informations de resolution locale.
 
-Echelle :
+### field_evidence
 
-```text
-0 .. 100
-```
+Preuves champ par champ. Statuts possibles : `EXACT`, `NORMALIZED_EXACT`, `TYPO_LIKELY`, `UNKNOWN`, `MISSING`, `CONFLICT`.
 
-Ce n'est pas une probabilite calibree.
+### decision
 
-#### decision
+Valeurs : `MEME_ADRESSE`, `A_CONTROLER`, `DIFFERENTE`.
 
-Valeurs :
+### decision_reason
 
-```text
-MEME_ADRESSE
-A_CONTROLER
-DIFFERENTE
-```
+Motifs V6 importants :
 
-#### decision_reason
-
-Motif principal de la decision.
-
-Motifs possibles cote texte :
-
-- `MODELE_V3`
+- `MODELE_SIMILARITE`
 - `STRUCTURE_IDENTIQUE`
-- `CONFLIT_CODE_POSTAL`
-- `CONFLIT_COMMUNE`
-- `COMMUNE_AMBIGUE`
+- `COMMUNE_PROCHE_NON_IDENTIQUE`
+- `NOM_VOIE_PROCHE_NON_IDENTIQUE`
 - `CONFLIT_NUMERO`
 - `CONFLIT_SUFFIXE_NUMERO`
 - `CONFLIT_TYPE_VOIE`
+- `CONFLIT_CODE_POSTAL`
+- `CONFLIT_COMMUNE`
 - `CONFLIT_NOM_VOIE`
-- `NOM_VOIE_PROCHE_NON_IDENTIQUE`.
-
-Motifs possibles avec BAN :
-
 - `MEME_ID_BAN`
 - `BAN_LOCALE_COHERENTE`
-- `TEXTE_FORT_MAIS_CONFLIT_BAN`
-- `CONFLIT_BAN_LOCALE`
-- `PREUVE_BAN_AMBIGUE`
-- `DEUX_ADRESSES_NON_TROUVEES_DANS_BAN`
-- `EXISTENCE_EXACTE_NON_CONFIRMEE`
-- `V3_PLUS_BAN_LOCALE`.
 
-Lorsque la BAN n'est pas disponible/desactivee :
+### score_text / decision_text
 
-- `BAN_LOCALE_ABSENTE_FALLBACK_V3`
-- `BAN_LOCALE_DESACTIVEE`
+Resultat structurel avant fusion BAN.
 
-si aucune autre regle metier plus importante n'a deja fourni un motif.
+### score_text_v3 / decision_text_v3
 
-#### raw_model_score
+Aliases historiques conserves pour compatibilite.
 
-Score brut produit par le modele logistique avant les plafonds/planchers metier.
+### parsed_A / parsed_B
 
-#### score_text_v3
+Representation historique du parsing d'entree.
 
-Score texte apres application des regles structurelles, avant eventuelle fusion BAN.
+### address_a_ban / address_b_ban
 
-Le nom est conserve pour compatibilite avec l'API actuelle.
+Resultats detailes de recherche locale si la BAN est utilisee.
 
-#### parsed_A / parsed_B
+### official_pair
 
-Structure extraite :
+Preuves officielles combinees entre les deux resultats BAN.
 
-```json
-{
-  "norm": "...",
-  "numero": "187",
-  "suffixe": "",
-  "type_voie": "boulevard",
-  "nom_voie": "de pontoise",
-  "code_postal": "75015",
-  "ville_norm": "paris",
-  "ville_source": "postal_segment"
-}
-```
+## Validation
 
-#### ban_used
+- longueur minimale d'une adresse : 3 caracteres
+- longueur maximale : 500 caracteres
+- espaces externes supprimes
 
-`true` si la couche BAN a effectivement ete utilisee pour la paire.
-
-#### ban_available
-
-Indique si le fichier BAN local est disponible.
-
-#### official_pair
-
-Present lorsque la BAN est utilisee.
-
-Exemples de champs :
-
-- `usable_both`
-- `same_official_id`
-- `official_street_similarity`
-- `official_number_same`
-- `official_suffix_same`
-- `official_postcode_same`
-- `official_city_same`
-- `official_distance_m`
-- `official_pair_score`.
-
-#### address_a_ban / address_b_ban
-
-Resultat detaille de recherche locale.
-
-Voir [BAN.md](BAN.md).
-
-## Codes HTTP
-
-### 200
-
-Requete valide.
-
-### 422
-
-Erreur de validation Pydantic, par exemple :
-
-- adresse trop courte ;
-- adresse trop longue ;
-- champ obligatoire manquant.
-
-### 500
-
-Erreur interne de scoring.
-
-La reponse contient un detail d'erreur technique.
-
-## Exemples curl
-
-### Sans BAN
-
-```bash
-curl -X POST http://localhost:8000/score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "address_a": "12 avenue jean jaures 75019 paris",
-    "address_b": "12 avenue jean jauresx 75019 paris",
-    "use_ban": false
-  }'
-```
-
-### Avec BAN
-
-```bash
-curl -X POST http://localhost:8000/score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "address_a": "187 bld de pontoise 75015 paris",
-    "address_b": "187 boulevard de pontoise 75015 paris",
-    "use_ban": true
-  }'
-```
+Codes HTTP : 200, 422, 500.
