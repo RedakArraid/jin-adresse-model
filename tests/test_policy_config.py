@@ -31,6 +31,23 @@ class PolicyConfigTests(unittest.TestCase):
         self.assertEqual(result["decision"], "A_CONTROLER")
         self.assertLessEqual(result["score_final"], 83.0)
 
+    def test_city_review_cap_is_loaded_from_config(self):
+        cfg = json.loads((APP / "model_config.json").read_text(encoding="utf-8"))
+        cfg["decision_policy"]["score_caps"]["COMMUNE_PROCHE_NON_IDENTIQUE"] = 84.0
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "model_config.json"
+            path.write_text(json.dumps(cfg), encoding="utf-8")
+            matcher = AddressMatcher(path, Path(td) / "no-ban.sqlite")
+            result = matcher.score(
+                "370 rte de st canadet 13100 aix en providence",
+                "370 route de saint canadet 13100 aix en provence",
+                use_ban=False,
+            )
+
+        self.assertEqual(result["decision"], "A_CONTROLER")
+        self.assertLessEqual(result["score_final"], 84.0)
+
     def test_exact_match_floor_is_loaded_from_config(self):
         cfg = json.loads((APP / "model_config.json").read_text(encoding="utf-8"))
         cfg["decision_policy"]["score_floors"]["STRUCTURE_IDENTIQUE"] = 97.0
