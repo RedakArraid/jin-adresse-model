@@ -31,16 +31,6 @@ class DecisionEngine:
         if evidence.postcode.status == "CONFLICT":
             return self._result("DIFFERENTE", "CONFLIT_CODE_POSTAL", min(score, self._cap("CONFLIT_CODE_POSTAL")))
 
-        if evidence.city.status == "CONFLICT":
-            return self._result("DIFFERENTE", "CONFLIT_COMMUNE", min(score, self._cap("CONFLIT_COMMUNE")))
-
-        if evidence.city.status == "TYPO_LIKELY":
-            return self._result(
-                "A_CONTROLER",
-                "COMMUNE_PROCHE_NON_IDENTIQUE",
-                min(score, self._cap("COMMUNE_PROCHE_NON_IDENTIQUE")),
-            )
-
         if evidence.number.status == "CONFLICT":
             return self._result("DIFFERENTE", "CONFLIT_NUMERO", min(score, self._cap("CONFLIT_NUMERO")))
 
@@ -58,11 +48,21 @@ class DecisionEngine:
                 min(score, self._cap("CONFLIT_TYPE_VOIE")),
             )
 
+        if evidence.city.status == "CONFLICT":
+            return self._result("DIFFERENTE", "CONFLIT_COMMUNE", min(score, self._cap("CONFLIT_COMMUNE")))
+
         if evidence.street_name.status == "CONFLICT" and evidence.strong_location:
             return self._result(
                 "DIFFERENTE",
                 "CONFLIT_NOM_VOIE",
                 min(score, self._cap("CONFLIT_NOM_VOIE")),
+            )
+
+        if evidence.city.status == "TYPO_LIKELY":
+            return self._result(
+                "A_CONTROLER",
+                "COMMUNE_PROCHE_NON_IDENTIQUE",
+                min(score, self._cap("COMMUNE_PROCHE_NON_IDENTIQUE")),
             )
 
         if evidence.street_name.status == "TYPO_LIKELY" and evidence.strong_location:
