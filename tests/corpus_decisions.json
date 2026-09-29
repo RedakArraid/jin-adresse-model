@@ -46,5 +46,13 @@
     "expected_decision": "DIFFERENTE",
     "expected_reason": "CONFLIT_NOM_VOIE",
     "max_score": 15
+  },
+  {
+    "id": "near_city_name_typo",
+    "address_a": "370 rte de st canadet 13100 aix en providence",
+    "address_b": "370 route de saint canadet 13100 aix en provence",
+    "expected_decision": "A_CONTROLER",
+    "expected_reason": "COMMUNE_PROCHE_NON_IDENTIQUE",
+    "max_score": 89
   }
 ]
