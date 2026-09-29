@@ -105,6 +105,8 @@ class AddressMatcher:
             "confidence_score": text["confidence_score"],
             "decision": text["decision"],
             "decision_reason": text["decision_reason"],
+            "score_text": text["score"],
+            "decision_text": text["decision"],
             "score_text_v3": text["score"],
             "raw_model_score": text["raw_model_score"],
             "decision_text_v3": text["decision"],
