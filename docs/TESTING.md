@@ -1,158 +1,64 @@
-# Tests et non-regression
+# Tests V6
 
-## Commande locale
-
-Depuis la racine :
+## Lancer
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Avec le Makefile :
-
-```bash
-make test
-```
-
-## Organisation
+## Couverture
 
 ### test_parser.py
 
-Teste la normalisation et le parsing :
-
-- noms de ville presents dans le nom de voie ;
-- commune extraite apres le code postal ;
-- communes absentes d'un dictionnaire ferme ;
-- communes multi-mots ;
-- CEDEX ;
-- `bis / ter / quater` ;
-- abreviations.
+Normalisation et parsing.
 
 ### test_matcher.py
 
-Teste les decisions texte :
+Regles historiques et structurelles.
 
-- correspondances avec abreviations ;
-- conflit de type de voie ;
-- faute proche dans le nom de voie ;
-- conflits de numero ;
-- conflits de suffixe ;
-- conflits de CP ;
-- conflits de commune ;
-- voies distinctes ;
-- villes non pre-enumerees ;
-- score brut expose pour audit.
+### test_v6_structure.py
+
+Comportements V6 :
+
+- commune proche sans BAN -> `A_CONTROLER` ;
+- separation `similarity_score` / `confidence_score` ;
+- priorite d'un conflit de numero ;
+- signatures canoniques ;
+- correction de commune via BAN locale ;
+- preuve `NORMALIZED_EXACT` apres resolution.
 
 ### test_ban.py
 
-Teste :
-
-- recherche locale ;
-- suffixes ;
-- absence de candidat ;
-- metadonnees ;
-- maintien d'un cas ambigu en `A_CONTROLER` meme avec BAN ;
-- import atomique interrompu ;
-- rejet d'un CSV invalide sans perte des donnees existantes.
-
-### test_api.py
-
-Teste :
-
-- `/health`
-- `/score`
-- taille minimale ;
-- chaines d'espaces ;
-- taille maximale.
-
-### test_corpus.py
-
-Charge le fichier :
-
-```text
-tests/corpus_decisions.json
-```
-
-et verifie :
-
-- decision ;
-- motif ;
-- score minimal ;
-- score maximal.
+Recherche BAN, suffixes, absence de candidat, metadata et import atomique.
 
 ### test_policy_config.py
 
-Verifie que le moteur lit vraiment les bornes depuis `model_config.json`.
+Verifie que les bornes viennent de `model_config.json`.
 
-Le test modifie temporairement une valeur de configuration et verifie que le comportement du moteur change en consequence.
+### test_corpus.py
 
-## Corpus de non-regression
+Execute `tests/corpus_decisions.json`.
 
-Structure d'un cas :
+### test_api.py
 
-```json
-{
-  "id": "near_street_name_typo",
-  "address_a": "12 avenue jean jaures 75019 paris",
-  "address_b": "12 avenue jean jauresx 75019 paris",
-  "expected_decision": "A_CONTROLER",
-  "expected_reason": "NOM_VOIE_PROCHE_NON_IDENTIQUE",
-  "max_score": 89
-}
-```
+Valide les endpoints et la version runtime.
 
-Le corpus doit contenir chaque bug metier corrige afin d'empecher sa reintroduction.
+## Corpus
 
-## Ajouter une regression
+Un cas peut definir `expected_decision`, `expected_reason`, `max_score` et `min_score`.
 
-Procedure recommandee :
+La V6 ajoute notamment une commune proche non identique plafonnee a 89.
 
-1. reproduire la paire ;
-2. comprendre si le probleme vient de la normalisation, du parsing, des regles ou du modele ;
-3. corriger la cause ;
-4. ajouter un test cible ;
-5. ajouter le cas au corpus si une decision/borne metier doit rester stable ;
-6. lancer toute la suite ;
-7. verifier la CI.
+## CI
 
-## CI GitHub
+A chaque push et pull request :
 
-Workflow :
+1. installation des dependances ;
+2. compilation Python ;
+3. tests ;
+4. `docker compose config` ;
+5. `docker build .`.
 
-```text
-.github/workflows/ci.yml
-```
+## Validation production
 
-A chaque push sur `main` et pull request :
-
-1. checkout ;
-2. Python 3.12 ;
-3. installation des dependances ;
-4. `compileall` ;
-5. tests ;
-6. `docker compose config` ;
-7. `docker build .`.
-
-## Critere avant fusion
-
-Un changement de regle ou de configuration ne devrait etre fusionne que si :
-
-- tous les tests passent ;
-- le corpus passe ;
-- Compose est valide ;
-- l'image Docker se construit ;
-- les nouveaux cas metier ont une non-regression.
-
-## Evaluation metier
-
-La suite actuelle est une suite de non-regression, pas une evaluation statistique representative de toute la France.
-
-Pour une validation production, constituer un corpus reel etiquete et mesurer au minimum :
-
-- precision des `MEME_ADRESSE` ;
-- rappel ;
-- faux positifs ;
-- faux negatifs ;
-- part de `A_CONTROLER` ;
-- performances avec et sans BAN ;
-- performances par type de voie, commune, format et qualite de saisie.
+Les tests actuels sont des non-regressions. Ils ne remplacent pas un corpus reel etiquete permettant de mesurer precision, rappel, faux positifs, faux negatifs et taux de `A_CONTROLER`.
