@@ -1,4 +1,4 @@
-# Exploitation et Docker
+# Exploitation V6
 
 ## Demarrage
 
@@ -6,29 +6,10 @@
 docker compose up --build -d
 ```
 
-Equivalent Makefile :
+## Services
 
-```bash
-make up
-```
-
-## Etat des conteneurs
-
-```bash
-docker compose ps
-```
-
-## Logs
-
-```bash
-docker compose logs -f api ui
-```
-
-ou :
-
-```bash
-make logs
-```
+- Streamlit : 8501
+- FastAPI : 8000
 
 ## Healthcheck
 
@@ -36,23 +17,7 @@ make logs
 curl http://localhost:8000/health
 ```
 
-Verifier :
-
-- `status = ok`
-- `model_version = V5.4-local-BAN`
-- etat BAN attendu.
-
-## Test rapide du scoring
-
-```bash
-curl -X POST http://localhost:8000/score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "address_a": "187 bld de pontoise 75015 paris",
-    "address_b": "187 boulevard de pontoise 75015 paris",
-    "use_ban": false
-  }'
-```
+Version attendue : `V6.0-local-BAN`.
 
 ## Import BAN
 
@@ -60,151 +25,59 @@ curl -X POST http://localhost:8000/score \
 docker compose run --rm ban-loader --departments 13
 ```
 
-ou :
+## Test API
 
 ```bash
-make ban DEPS="13 75 69"
+curl -X POST http://localhost:8000/score \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address_a": "187 bld de pontoise 75015 paris",
+    "address_b": "187 boulevard de pontoise 75015 paris",
+    "use_ban": true
+  }'
 ```
 
-## Persistance
+Verifier notamment : `similarity_score`, `confidence_score`, `decision`, `field_evidence`, `canonical_A`, `canonical_B`.
 
-La base est stockee dans :
+## Logs
 
-```text
-volume Docker ban_data
-└── /data/ban/ban.sqlite
+```bash
+docker compose logs -f api ui
 ```
 
-`docker compose down` conserve le volume.
-
-`docker compose down -v` le supprime.
-
-## Mise a jour du code
+## Mise a jour
 
 ```bash
 git pull
 docker compose up --build -d
 ```
 
-Le volume BAN est conserve tant que `-v` n'est pas utilise.
+Le volume BAN reste conserve tant que `docker compose down -v` n'est pas utilise.
 
-## Mise a jour de la politique
-
-Modifier :
-
-```text
-app/model_config.json
-```
-
-Puis reconstruire l'image :
-
-```bash
-docker compose up --build -d
-```
-
-Lancer ensuite les tests :
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Sauvegarde BAN
-
-Identifier le volume :
-
-```bash
-docker volume ls
-```
-
-La strategie de sauvegarde doit etre adaptee a l'environnement d'exploitation.
-
-Comme les donnees BAN peuvent etre retelechargees, le principal besoin de sauvegarde concerne surtout :
-
-- la configuration ;
-- les versions de code ;
-- les eventuelles donnees locales non reproductibles.
-
-## Reinitialiser la BAN
-
-```bash
-docker compose down -v
-docker compose up --build -d
-```
-
-Puis reimporter les departements necessaires.
-
 ## Diagnostic
 
-### API indisponible
+### Commune proche reste A_CONTROLER
 
-```bash
-docker compose logs api
-docker compose ps
-```
+Verifier que le departement correspondant au code postal est charge dans la BAN locale. Sans referentiel local, ce comportement est volontaire.
 
-### Interface indisponible
+### Similarite haute mais confiance faible
 
-```bash
-docker compose logs ui
-```
+Consulter `field_evidence` et `decision_reason`. Une contradiction structurelle peut plafonner la confiance meme avec un score statistique eleve.
 
-### BAN non detectee
+### BAN indisponible
 
 ```bash
 curl http://localhost:8000/ban/status
 ```
 
-Puis verifier le loader :
+## Configuration
 
-```bash
-docker compose run --rm ban-loader --departments 13
-```
+Le modele et la policy sont dans `app/model_config.json`.
 
-### Echec d'import
-
-L'import etant atomique, l'ancienne version du departement doit rester disponible.
-
-Consulter la sortie du `ban-loader`.
-
-## CI
-
-Avant une mise en production interne, verifier que le workflow GitHub Actions du dernier commit est vert.
-
-La CI couvre :
-
-- compilation ;
-- tests ;
-- Compose ;
-- build Docker.
-
-## Ports
-
-| Service | Port hote |
-|---|---:|
-| Streamlit | 8501 |
-| FastAPI | 8000 |
-
-## Variables d'environnement
-
-### API
-
-```text
-MODEL_PATH=/app/model_config.json
-BAN_DB_PATH=/data/ban/ban.sqlite
-```
-
-### UI
-
-```text
-API_URL=http://api:8000
-```
-
-## Utilisateur Docker
-
-L'image cree un utilisateur non privilegie :
-
-```text
-appuser
-```
-
-Le processus applicatif ne tourne pas en root.
+Un changement de configuration necessite un rebuild Docker.
