@@ -1,16 +1,29 @@
-# Comparateur d'adresses francaises - V5.4
+# Comparateur d'adresses francaises - V6.0
 
-Prototype autonome de rapprochement d'adresses francaises avec :
+Moteur local de rapprochement d'adresses francaises avec interface Streamlit, API FastAPI et BAN locale SQLite optionnelle.
 
-- une interface **Streamlit** ;
-- une API **FastAPI** ;
-- un moteur de normalisation et de parsing ;
-- un modele logistique local ;
-- des regles metier structurelles prioritaires ;
-- une **Base Adresse Nationale (BAN) locale SQLite** optionnelle ;
-- une politique de decision centralisee dans `app/model_config.json`.
+La V6 separe clairement :
 
-Le scoring peut fonctionner entierement hors ligne. Internet n'est utilise que lorsqu'un import ou une mise a jour de la BAN est lance explicitement.
+```text
+Adresse brute
+   |
+   v
+CanonicalAddress
+   |
+   v
+FieldEvidence
+   |
+   +--> similarity_score (modele statistique)
+   |
+   +--> DecisionEngine
+   |
+   +--> BAN locale / resolution CP-commune
+   |
+   v
+confidence_score + decision
+```
+
+Le scoring peut fonctionner hors ligne. Internet n'est utilise que pour telecharger ou mettre a jour la BAN.
 
 ## Architecture
 
@@ -25,30 +38,25 @@ FastAPI :8000
    |
    v
 AddressMatcher
-   |-- normalisation / parsing
+   |-- AddressResolver
+   |-- CanonicalAddress
+   |-- AddressComparator
+   |-- FieldEvidence
    |-- modele logistique local
-   |-- regles structurelles
-   |-- politique de decision JSON
+   |-- DecisionEngine
    |
-   +-- BAN SQLite locale (optionnelle)
+   +-- LocalBANGeocoder
+       |-- recherche d'adresse
+       +-- resolution code postal / commune / code INSEE
 ```
 
-Le moteur retourne trois decisions :
+Les decisions possibles sont :
 
-- `MEME_ADRESSE` : correspondance suffisamment forte ;
-- `A_CONTROLER` : cas ambigu a verifier ;
-- `DIFFERENTE` : contradiction structurelle ou evidence insuffisante.
+- `MEME_ADRESSE`
+- `A_CONTROLER`
+- `DIFFERENTE`
 
-Le **score final n'est pas une probabilite statistique calibree**. C'est un score de decision combine au modele, aux regles metier et, si elle est disponible, a la BAN locale.
-
-## Demarrage rapide
-
-Prerequis :
-
-- Docker Desktop, ou Docker Engine ;
-- Docker Compose v2.
-
-Cloner puis demarrer :
+## Demarrage
 
 ```bash
 git clone https://github.com/RedakArraid/jin-adresse-model.git
@@ -56,77 +64,123 @@ cd jin-adresse-model
 docker compose up --build -d
 ```
 
-Ouvrir ensuite :
+Puis ouvrir :
 
 - interface : http://localhost:8501
 - API Swagger : http://localhost:8000/docs
 - healthcheck : http://localhost:8000/health
 
-Arreter :
+## V6 : adresse canonique
 
-```bash
-docker compose down
+Chaque adresse est transformee independamment en structure canonique :
+
+```json
+{
+  "number": "370",
+  "suffix": "",
+  "street_type": "route",
+  "street_name": "de saint canadet",
+  "postcode": "13100",
+  "city_input": "aix en provence",
+  "city_canonical": "aix en provence",
+  "city_code": "13001"
+}
 ```
 
-Le guide minimal est egalement disponible dans [QUICKSTART.txt](QUICKSTART.txt).
+Le moteur expose egalement :
 
-## Fonctionnement du scoring
+- `house_key`
+- `street_key`
+- `locality_key`
+- `address_key`
 
-Le traitement suit cet ordre :
+La BAN locale peut corriger une commune saisie avec une faute lorsque le couple code postal / commune est suffisamment non ambigu.
 
-1. normalisation des accents, ponctuations et abreviations ;
-2. extraction du numero, suffixe, type de voie, nom de voie, code postal et commune ;
-3. calcul des variables de similarite ;
-4. calcul du score brut du modele logistique ;
-5. application des regles structurelles prioritaires ;
-6. si disponible, interrogation de la BAN locale ;
-7. fusion prudente du signal texte et du signal BAN ;
-8. application des plafonds/planchers configures ;
-9. production de la decision finale.
+## V6 : preuves par champ
 
-### Normalisation
+Chaque composant est compare separement.
 
-Quelques exemples d'aliases reconnus :
+Etats possibles :
 
-```text
-r / r.           -> rue
-av / ave         -> avenue
-bd / boul        -> boulevard
-bv / bvd / bld   -> boulevard
-rte / rt         -> route
-st / ste         -> saint / sainte
-gal / gen        -> general
+- `EXACT`
+- `NORMALIZED_EXACT`
+- `TYPO_LIKELY`
+- `UNKNOWN`
+- `MISSING`
+- `CONFLICT`
+
+Exemple :
+
+```json
+{
+  "number": {"status": "EXACT"},
+  "street_type": {"status": "EXACT"},
+  "street_name": {"status": "EXACT"},
+  "postcode": {"status": "EXACT"},
+  "city": {
+    "status": "TYPO_LIKELY",
+    "similarity": 0.9375
+  }
+}
 ```
 
-Les variantes de suffixes sont egalement normalisees :
+Une commune proche mais non identique reste `A_CONTROLER` sans referentiel local capable de la canonicaliser.
 
-```text
-14B -> 14 bis
-14T -> 14 ter
-14Q -> 14 quater
-```
+## Similarite et confiance
 
-Le code postal sert de frontiere structurelle entre la voie et la commune. Ainsi, un nom de ville present dans le nom de voie n'est pas supprime par erreur.
+La V6 expose deux scores distincts.
 
-## Regles structurelles principales
+### similarity_score
 
-Les contradictions explicites ont priorite sur le score statistique.
+Score brut du modele statistique.
 
-| Cas | Decision | Borne V5.4 |
+Il mesure surtout la proximite textuelle/statistique.
+
+### confidence_score
+
+Score final apres :
+
+- canonicalisation ;
+- preuves par champ ;
+- regles de conflit ;
+- eventuelle resolution locale ;
+- eventuelle fusion BAN.
+
+`score_final` reste un alias du score de confiance pour compatibilite.
+
+Le score n'est pas une probabilite calibree.
+
+## Regles structurelles
+
+Les conflits durs sont prioritaires sur les fautes probables.
+
+Ordre general :
+
+1. code postal ;
+2. numero ;
+3. suffixe ;
+4. type de voie ;
+5. commune clairement incompatible ;
+6. nom de voie clairement incompatible ;
+7. commune proche mais non identique ;
+8. nom de voie proche mais non identique ;
+9. structure canonique identique.
+
+Exemples de bornes :
+
+| Motif | Decision | Borne |
 |---|---|---:|
-| Code postal different | `DIFFERENTE` | max 4 |
-| Commune clairement differente | `DIFFERENTE` | max 4 |
-| Numero different | `DIFFERENTE` | max 4 |
-| Suffixe different pour un meme numero | `DIFFERENTE` | max 4 |
-| Type de voie different | `DIFFERENTE` | max 8 |
-| Nom de voie clairement different | `DIFFERENTE` | max 15 |
-| Nom de voie proche mais non identique | `A_CONTROLER` | max 89 |
-| Structure complete identique | `MEME_ADRESSE` | min 99 |
-| Meme identifiant BAN confirme | `MEME_ADRESSE` | min 99,9 |
+| `CONFLIT_CODE_POSTAL` | DIFFERENTE | max 4 |
+| `CONFLIT_NUMERO` | DIFFERENTE | max 4 |
+| `CONFLIT_SUFFIXE_NUMERO` | DIFFERENTE | max 4 |
+| `CONFLIT_TYPE_VOIE` | DIFFERENTE | max 8 |
+| `CONFLIT_COMMUNE` | DIFFERENTE | max 4 |
+| `CONFLIT_NOM_VOIE` | DIFFERENTE | max 15 |
+| `COMMUNE_PROCHE_NON_IDENTIQUE` | A_CONTROLER | max 89 |
+| `NOM_VOIE_PROCHE_NON_IDENTIQUE` | A_CONTROLER | max 89 |
+| `STRUCTURE_IDENTIQUE` | MEME_ADRESSE | min 99 |
 
-Le seuil du modele pour un match automatique est actuellement **95**. Le plafond de revue a donc ete fixe a **89**, ce qui empeche un cas `A_CONTROLER` d'atteindre le seuil automatique.
-
-Toutes ces valeurs sont centralisees dans :
+Les valeurs sont centralisees dans :
 
 ```text
 app/model_config.json
@@ -134,64 +188,67 @@ app/model_config.json
     ├── score_caps
     ├── score_floors
     ├── similarity
+    ├── resolver
     └── ban
 ```
 
-Voir [docs/DECISION_POLICY.md](docs/DECISION_POLICY.md).
+## Resolution locale code postal / commune
+
+Avec la BAN chargee, la V6 peut resoudre independamment une commune a partir du code postal.
+
+Etats :
+
+- `EXACT`
+- `TYPO_CORRECTED`
+- `AMBIGUOUS`
+- `NOT_FOUND`
+- `UNAVAILABLE`
+
+Configuration :
+
+```json
+"resolver": {
+  "city_auto_correct_min": 0.90,
+  "city_ambiguity_margin": 0.03,
+  "max_city_candidates": 100
+}
+```
+
+Une faute de commune peut donc devenir `NORMALIZED_EXACT` si le referentiel local identifie une seule commune canonique avec suffisamment de confiance.
 
 ## BAN locale
 
-Sans BAN, le moteur reste utilisable en mode texte V5.4.
-
-Pour importer un departement :
+Importer un departement :
 
 ```bash
 docker compose run --rm ban-loader --departments 13
 ```
 
-Pour plusieurs departements :
+Plusieurs departements :
 
 ```bash
 docker compose run --rm ban-loader --departments 13 75 69 93
 ```
 
-Les donnees sont stockees dans le volume Docker `ban_data`.
+La BAN est stockee dans le volume Docker `ban_data`.
 
-L'import est atomique :
-
-```text
-telechargement
-    |
-    v
-ban_staging
-    |
-    v
-validation
-    |
-    v
-transaction SQLite
-    |
-    v
-remplacement du departement
-```
-
-Si le chargement ou la validation echoue avant la publication, la version precedemment chargee du departement reste disponible.
+L'import reste atomique via `ban_staging`.
 
 Voir [docs/BAN.md](docs/BAN.md).
 
 ## API
 
-### `GET /health`
+### GET /health
 
-Retourne l'etat de l'API, la version du moteur et l'etat de la BAN locale.
+Retourne la version et l'etat BAN.
 
-### `GET /ban/status`
+### GET /ban/status
 
-Retourne les informations disponibles sur la base locale : disponibilite, nombre de lignes, departements charges et metadonnees.
+Retourne les statistiques de la base locale.
 
-### `POST /score`
+### POST /score
 
-Corps :
+Exemple :
 
 ```json
 {
@@ -201,133 +258,90 @@ Corps :
 }
 ```
 
-Exemple `curl` :
+Champs V6 principaux :
 
-```bash
-curl -X POST http://localhost:8000/score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "address_a": "187 bld de pontoise 75015 paris",
-    "address_b": "187 boulevard de pontoise 75015 paris",
-    "use_ban": true
-  }'
-```
-
-Les champs principaux de sortie sont :
-
+- `similarity_score`
+- `confidence_score`
 - `score_final`
 - `decision`
 - `decision_reason`
-- `score_text_v3`
-- `raw_model_score`
-- `parsed_A`, `parsed_B`
-- `ban_used`
+- `canonical_A`
+- `canonical_B`
+- `field_evidence`
 - `official_pair`
-- `address_a_ban`, `address_b_ban`
 - `model_version`
+
+Pour compatibilite, les champs `score_text_v3` et `decision_text_v3` sont encore exposes. Les nouveaux alias sont `score_text` et `decision_text`.
 
 Voir [docs/API.md](docs/API.md).
 
-## Tests et corpus
-
-Lancer toute la suite :
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Le corpus de non-regression est dans :
+La V6 ajoute des regressions pour :
+
+- commune proche sans BAN -> `A_CONTROLER` ;
+- correction de commune via BAN locale ;
+- separation similarite / confiance ;
+- priorite des conflits durs ;
+- adresses canoniques et signatures ;
+- evidence par champ.
+
+Corpus :
 
 ```text
 tests/corpus_decisions.json
 ```
 
-Il contient les decisions attendues ainsi que les bornes de score `min_score` / `max_score`.
-
-La CI GitHub execute automatiquement :
-
-1. installation des dependances ;
-2. compilation Python ;
-3. tests unitaires et corpus ;
-4. validation de `docker compose config` ;
-5. construction de l'image Docker.
-
 Voir [docs/TESTING.md](docs/TESTING.md).
 
-## Structure du depot
+## Structure
 
 ```text
-.
-├── app/
-│   ├── api.py
-│   ├── ban_local.py
-│   ├── matcher.py
-│   ├── model_config.json
-│   ├── score_address_pair_v3.py
-│   └── ui.py
-├── data/
-│   └── ban/
-├── docs/
-│   ├── API.md
-│   ├── ARCHITECTURE.md
-│   ├── BAN.md
-│   ├── DECISION_POLICY.md
-│   ├── OPERATIONS.md
-│   └── TESTING.md
-├── scripts/
-│   └── download_ban.py
-├── tests/
-│   ├── corpus_decisions.json
-│   ├── test_api.py
-│   ├── test_ban.py
-│   ├── test_corpus.py
-│   ├── test_matcher.py
-│   ├── test_parser.py
-│   └── test_policy_config.py
-├── .github/workflows/ci.yml
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-├── QUICKSTART.txt
-├── CHANGELOG.md
-└── requirements.txt
+app/
+├── address_domain.py
+├── api.py
+├── ban_local.py
+├── decision_engine.py
+├── matcher.py
+├── model_config.json
+├── score_address_pair_v3.py
+└── ui.py
 ```
 
-## Documentation detaillee
+Le fichier `score_address_pair_v3.py` conserve son nom pour compatibilite historique ; il fournit toujours la normalisation, le parsing et les features du modele.
+
+## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Politique de decision](docs/DECISION_POLICY.md)
 - [API](docs/API.md)
 - [BAN locale](docs/BAN.md)
-- [Tests et non-regression](docs/TESTING.md)
-- [Exploitation / Docker](docs/OPERATIONS.md)
+- [Tests](docs/TESTING.md)
+- [Exploitation](docs/OPERATIONS.md)
 - [Changelog](CHANGELOG.md)
 
-## Securite et confidentialite
+## Limites
 
-Pendant un scoring standard, aucune adresse n'a besoin d'etre envoyee a un service de geocodage externe. Lorsque la BAN locale est chargee, la recherche se fait dans SQLite en lecture seule.
+La V6 est structurellement plus robuste, mais une validation production exige encore un corpus reel etiquete et representatif.
 
-Le chargeur BAN est le seul composant qui effectue volontairement une connexion Internet pour recuperer les fichiers officiels.
+A mesurer avant industrialisation :
 
-Le conteneur applicatif s'execute avec un utilisateur non privilegie.
-
-## Limites actuelles
-
-Ce projet reste un prototype avance, pas une preuve de performance metier en production.
-
-En particulier :
-
-- les coefficients du modele ne doivent pas etre interpretes comme une probabilite de correspondance ;
-- les performances globales precision/rappel doivent encore etre mesurees sur un corpus reel, etiquete et representatif ;
-- les seuils de `decision_policy` sont des choix metier/configuration et doivent etre recalibres sur ce corpus avant une industrialisation ;
-- la BAN ameliore la verification d'existence et d'identite, mais ne remplace pas un jeu d'evaluation metier.
+- precision ;
+- rappel ;
+- faux positifs ;
+- faux negatifs ;
+- taux de `A_CONTROLER` ;
+- performance avec/sans BAN ;
+- performance par type de saisie et region.
 
 ## Version
 
-Version runtime courante :
-
 ```text
-V5.4-local-BAN
+V6.0-local-BAN
 ```
 
-La version exposee par `/health` est lue depuis `app/model_config.json`, qui constitue la source de verite pour la version et la politique de decision.
+La version runtime et la politique de decision viennent de `app/model_config.json`.
