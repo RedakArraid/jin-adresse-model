@@ -10,7 +10,7 @@ API_URL = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
 
 st.set_page_config(page_title="Comparateur d'adresses", page_icon="📍", layout="wide")
 st.title("📍 Comparateur d'adresses")
-st.caption("V5.4 - scoring local, regles structurelles et Base Adresse Nationale locale optionnelle")
+st.caption("V6 - adresse canonique, preuves par champ, score de similarite et confiance finale")
 
 
 def api_get(path: str) -> Dict[str, Any]:
@@ -24,14 +24,23 @@ def api_post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     r.raise_for_status()
     return r.json()
 
+
 try:
     status = api_get("/health")
     ban = status.get("ban", {})
+    model_version = status.get("model_version", "n/a")
     if ban.get("available"):
         deps = ", ".join(ban.get("departments", [])) or "n/a"
-        st.success(f"BAN locale disponible : {ban.get('rows', 0):,} adresses | departements : {deps}".replace(",", " "))
+        st.success(
+            f"{model_version} | BAN locale disponible : "
+            f"{ban.get('rows', 0):,} adresses | departements : {deps}".replace(",", " ")
+        )
     else:
-        st.warning("BAN locale non importee : le moteur fonctionne en mode texte V5.4. Utilise la commande ban-loader pour l'ajouter.")
+        st.warning(
+            f"{model_version} | BAN locale non importee : "
+            "le moteur fonctionne en mode structurel local. "
+            "Les corrections CP/commune via le referentiel local ne sont alors pas disponibles."
+        )
 except Exception as exc:
     st.error(f"API indisponible : {exc}")
     st.stop()
@@ -55,17 +64,27 @@ use_ban = st.checkbox("Utiliser la BAN locale si elle est disponible", value=Tru
 if st.button("Comparer", type="primary", use_container_width=True):
     with st.spinner("Comparaison en cours..."):
         try:
-            result = api_post("/score", {"address_a": address_a, "address_b": address_b, "use_ban": use_ban})
+            result = api_post(
+                "/score",
+                {
+                    "address_a": address_a,
+                    "address_b": address_b,
+                    "use_ban": use_ban,
+                },
+            )
         except Exception as exc:
             st.error(f"Erreur : {exc}")
             st.stop()
 
     decision = result.get("decision", "")
-    score = result.get("score_final", 0.0)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Score final", f"{score:.2f} / 100")
+    confidence = float(result.get("confidence_score", result.get("score_final", 0.0)))
+    similarity = float(result.get("similarity_score", result.get("raw_model_score", 0.0)))
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Confiance finale", f"{confidence:.2f} / 100")
     c2.metric("Decision", decision)
-    c3.metric("Score texte", f"{float(result.get('score_text_v3', 0)):.2f} / 100")
+    c3.metric("Similarite modele", f"{similarity:.2f} / 100")
+    c4.metric("Version", result.get("model_version", "n/a"))
 
     if decision == "MEME_ADRESSE":
         st.success("Les deux adresses sont considerees comme la meme adresse.")
@@ -74,9 +93,32 @@ if st.button("Comparer", type="primary", use_container_width=True):
     else:
         st.warning("La paire doit etre controlee.")
 
-    st.caption(f"Version : {result.get('model_version', 'n/a')} | Raison : {result.get('decision_reason', '')}")
+    st.caption(f"Raison : {result.get('decision_reason', '')}")
 
-    with st.expander("Normalisation / parsing"):
+    with st.expander("Analyse structurelle V6", expanded=True):
+        st.markdown("**Preuves par champ**")
+        evidence = result.get("field_evidence", {})
+        for field_name in ("number", "suffix", "street_type", "street_name", "postcode", "city"):
+            item = evidence.get(field_name, {})
+            if item:
+                sim = item.get("similarity")
+                sim_text = "" if sim is None else f" | similarite={float(sim):.3f}"
+                st.write(
+                    f"{field_name}: **{item.get('status', '')}**"
+                    f" | A={item.get('left', '')!r}"
+                    f" | B={item.get('right', '')!r}"
+                    f"{sim_text}"
+                )
+
+        ca, cb = st.columns(2)
+        with ca:
+            st.markdown("**Adresse canonique A**")
+            st.json(result.get("canonical_A", {}))
+        with cb:
+            st.markdown("**Adresse canonique B**")
+            st.json(result.get("canonical_B", {}))
+
+    with st.expander("Parsing d'entree"):
         p1, p2 = st.columns(2)
         with p1:
             st.subheader("Adresse A")
@@ -103,7 +145,10 @@ if st.button("Comparer", type="primary", use_container_width=True):
         with st.expander("Comparaison des resultats BAN"):
             st.json(result.get("official_pair", {}))
     else:
-        st.info("Le score affiche est produit uniquement par le modele local de similarite.")
+        st.info(
+            "La BAN n'a pas ete utilisee. "
+            "La decision repose sur la canonicalisation locale, les preuves par champ et le modele de similarite."
+        )
 
     with st.expander("JSON complet"):
         st.json(result)
