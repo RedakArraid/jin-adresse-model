@@ -1,8 +1,8 @@
 # API V6
 
-Base locale : `http://localhost:8000`
+Base locale : `http://localhost:8001`
 
-Swagger : `http://localhost:8000/docs`
+Swagger : `http://localhost:8001/docs`
 
 ## GET /health
 

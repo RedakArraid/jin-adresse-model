@@ -14,7 +14,7 @@ docker compose up --build -d
 ## Healthcheck
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 Version attendue : `V6.0-local-BAN`.
@@ -28,7 +28,7 @@ docker compose run --rm ban-loader --departments 13
 ## Test API
 
 ```bash
-curl -X POST http://localhost:8000/score \
+curl -X POST http://localhost:8001/score \
   -H "Content-Type: application/json" \
   -d '{
     "address_a": "187 bld de pontoise 75015 paris",
@@ -73,7 +73,7 @@ Consulter `field_evidence` et `decision_reason`. Une contradiction structurelle 
 ### BAN indisponible
 
 ```bash
-curl http://localhost:8000/ban/status
+curl http://localhost:8001/ban/status
 ```
 
 ## Configuration

@@ -67,8 +67,8 @@ docker compose up --build -d
 Puis ouvrir :
 
 - interface : http://localhost:8501
-- API Swagger : http://localhost:8000/docs
-- healthcheck : http://localhost:8000/health
+- API Swagger : http://localhost:8001/docs
+- healthcheck : http://localhost:8001/health
 
 ## V6 : adresse canonique
 
