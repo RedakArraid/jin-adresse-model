@@ -1,0 +1,235 @@
+[
+  {
+    "id": "exact_same_address",
+    "category": "match_exact",
+    "address_a": "42 rue des Lilas 33000 Bordeaux",
+    "address_b": "42 rue des Lilas 33000 Bordeaux",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "Deux libelles strictement identiques doivent etre un match certain."
+  },
+  {
+    "id": "route_abbreviation",
+    "category": "match_normalization",
+    "address_a": "370 RTE DE ST CANADET 13100 AIX EN PROVENCE",
+    "address_b": "370 route de Saint-Canadet 13100 Aix-en-Provence",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "RTE, ST, accents et tirets sont des variantes de normalisation."
+  },
+  {
+    "id": "boulevard_bv",
+    "category": "match_normalization",
+    "address_a": "187 bv de Pontoise 95370 Montigny les Cormeilles",
+    "address_b": "187 boulevard de Pontoise 95370 Montigny-les-Cormeilles",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "BV doit etre normalise en boulevard."
+  },
+  {
+    "id": "boulevard_bvd",
+    "category": "match_normalization",
+    "address_a": "8 bvd Jean Jaures 69007 Lyon",
+    "address_b": "8 boulevard Jean-Jaures 69007 Lyon",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "BVD doit etre normalise en boulevard."
+  },
+  {
+    "id": "avenue_abbreviation",
+    "category": "match_normalization",
+    "address_a": "15 av du General Leclerc 35000 Rennes",
+    "address_b": "15 avenue du Général-Leclerc 35000 Rennes",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "AV, GAL, accents et ponctuation doivent converger."
+  },
+  {
+    "id": "number_suffix_b",
+    "category": "match_normalization",
+    "address_a": "14B rue Victor Hugo 92110 Clichy",
+    "address_b": "14 bis rue Victor-Hugo 92110 Clichy",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "Le suffixe colle B equivaut a bis."
+  },
+  {
+    "id": "unknown_multiword_city",
+    "category": "match_city",
+    "address_a": "4 R Centrale 74200 Thonon les Bains",
+    "address_b": "4 rue Centrale 74200 Thonon-les-Bains",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "Une commune multi-mots ne doit pas dependre d'un dictionnaire ferme."
+  },
+  {
+    "id": "cedex_variant",
+    "category": "match_city",
+    "address_a": "8 avenue de France 75013 Paris Cedex 13",
+    "address_b": "8 avenue de France 75013 Paris",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "La mention CEDEX ne change pas l'adresse de voie."
+  },
+  {
+    "id": "case_accents_punctuation",
+    "category": "match_normalization",
+    "address_a": "27, ALLÉE D'ALSACE 67000 STRASBOURG",
+    "address_b": "27 allee d Alsace 67000 Strasbourg",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "Casse, accents, apostrophe et virgule sont non discriminants."
+  },
+  {
+    "id": "conflict_house_number",
+    "category": "different_number",
+    "address_a": "25 boulevard Voltaire 75011 Paris",
+    "address_b": "26 boulevard Voltaire 75011 Paris",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Deux numeros explicites differents sont contradictoires."
+  },
+  {
+    "id": "conflict_large_number_gap",
+    "category": "different_number",
+    "address_a": "1 rue des Fleurs 59000 Lille",
+    "address_b": "999 rue des Fleurs 59000 Lille",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Un grand ecart de numero ne doit jamais augmenter le score."
+  },
+  {
+    "id": "conflict_missing_suffix",
+    "category": "different_suffix",
+    "address_a": "14 rue Victor Hugo 92110 Clichy",
+    "address_b": "14 bis rue Victor Hugo 92110 Clichy",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Le 14 et le 14 bis sont deux points adresse distincts."
+  },
+  {
+    "id": "conflict_suffix_value",
+    "category": "different_suffix",
+    "address_a": "14 bis rue Victor Hugo 92110 Clichy",
+    "address_b": "14 ter rue Victor Hugo 92110 Clichy",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Bis et ter ne sont pas interchangeables."
+  },
+  {
+    "id": "conflict_postcode",
+    "category": "different_postcode",
+    "address_a": "12 rue Nationale 59000 Lille",
+    "address_b": "12 rue Nationale 69003 Lyon",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Deux codes postaux explicites differents sont contradictoires."
+  },
+  {
+    "id": "conflict_city_same_postcode",
+    "category": "different_city",
+    "address_a": "10 rue Victor Hugo 75001 Paris",
+    "address_b": "10 rue Victor Hugo 75001 Lyon",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 4.0,
+    "rationale": "Une commune clairement differente doit bloquer le match."
+  },
+  {
+    "id": "conflict_street",
+    "category": "different_street",
+    "address_a": "5 rue de Brest 29000 Quimper",
+    "address_b": "5 rue de Lorient 29000 Quimper",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 15.0,
+    "rationale": "A localisation identique, deux voies distinctes ne doivent pas matcher."
+  },
+  {
+    "id": "street_named_after_city",
+    "category": "different_street",
+    "address_a": "10 rue de Paris 75001 Paris",
+    "address_b": "10 rue de Lyon 75001 Paris",
+    "expected_decisions": ["DIFFERENTE"],
+    "max_score": 15.0,
+    "rationale": "Le nom de ville present dans la voie doit etre conserve."
+  },
+  {
+    "id": "conflict_street_type_rue_boulevard",
+    "category": "different_street_type",
+    "address_a": "187 rue de Pontoise 95370 Montigny-les-Cormeilles",
+    "address_b": "187 boulevard de Pontoise 95370 Montigny-les-Cormeilles",
+    "expected_decisions": ["DIFFERENTE", "A_CONTROLER"],
+    "max_score": 85.0,
+    "rationale": "Une rue et un boulevard de meme nom ne doivent pas etre promus automatiquement."
+  },
+  {
+    "id": "conflict_street_type_route_avenue",
+    "category": "different_street_type",
+    "address_a": "6 route de Grenoble 73000 Chambery",
+    "address_b": "6 avenue de Grenoble 73000 Chambery",
+    "expected_decisions": ["DIFFERENTE", "A_CONTROLER"],
+    "max_score": 85.0,
+    "rationale": "Un type de voie explicite different est un signal de controle fort."
+  },
+  {
+    "id": "near_homonym_street",
+    "category": "ambiguous_street",
+    "address_a": "12 avenue Victor Hugo 75015 Paris",
+    "address_b": "12 avenue Victor Huguet 75015 Paris",
+    "expected_decisions": ["A_CONTROLER"],
+    "max_score": 89.0,
+    "rationale": "Deux patronymes proches ne doivent pas devenir un match automatique."
+  },
+  {
+    "id": "single_letter_typo_street",
+    "category": "ambiguous_typo",
+    "address_a": "31 rue Jean Jaures 44000 Nantes",
+    "address_b": "31 rue Jean Jauresx 44000 Nantes",
+    "expected_decisions": ["A_CONTROLER"],
+    "max_score": 94.99,
+    "rationale": "Une faute plausible doit etre controlee sans match automatique hors BAN."
+  },
+  {
+    "id": "city_minor_typo",
+    "category": "ambiguous_typo",
+    "address_a": "7 rue Pasteur 21000 Dijon",
+    "address_b": "7 rue Pasteur 21000 Djon",
+    "expected_decisions": ["A_CONTROLER", "MEME_ADRESSE"],
+    "min_score": 80.0,
+    "rationale": "Une faute mineure de commune avec CP et structure identiques reste plausible."
+  },
+  {
+    "id": "missing_postcode_one_side",
+    "category": "incomplete",
+    "address_a": "12 rue Victor Hugo Paris",
+    "address_b": "12 rue Victor Hugo 75015 Paris",
+    "expected_decisions": ["A_CONTROLER", "MEME_ADRESSE"],
+    "rationale": "L'absence de CP interdit une contradiction artificielle mais reduit la certitude."
+  },
+  {
+    "id": "missing_number_one_side",
+    "category": "incomplete",
+    "address_a": "rue de la Republique 13001 Marseille",
+    "address_b": "22 rue de la Republique 13001 Marseille",
+    "expected_decisions": ["A_CONTROLER"],
+    "max_score": 94.99,
+    "rationale": "Sans numero d'un cote, l'identite du point adresse n'est pas certaine."
+  },
+  {
+    "id": "unknown_street_abbreviation",
+    "category": "incomplete_normalization",
+    "address_a": "9 bld de la Liberte 35000 Rennes",
+    "address_b": "9 boulevard de la Liberte 35000 Rennes",
+    "expected_decisions": ["A_CONTROLER", "MEME_ADRESSE"],
+    "min_score": 80.0,
+    "rationale": "Bld est une variante frequente a prendre en charge ou a signaler."
+  },
+  {
+    "id": "country_suffix",
+    "category": "match_normalization",
+    "address_a": "3 place Bellecour 69002 Lyon France",
+    "address_b": "3 place Bellecour 69002 Lyon",
+    "expected_decisions": ["MEME_ADRESSE"],
+    "min_score": 99.0,
+    "rationale": "Le suffixe pays France ne change pas l'adresse."
+  }
+]

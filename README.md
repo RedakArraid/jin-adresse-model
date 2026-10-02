@@ -290,6 +290,18 @@ La V6 ajoute des regressions pour :
 - adresses canoniques et signatures ;
 - evidence par champ.
 
+Un corpus fictif plus large est disponible dans `tests/fixtures/fictional_address_cases.json`. Il separe les matchs certains, les differences certaines et les cas ambigus, avec des attentes sur la decision et, lorsque cela a du sens, une plage de score.
+
+```bash
+make eval
+```
+
+La commande affiche les ecarts sans echouer. Pour l'utiliser comme garde qualite stricte :
+
+```bash
+make eval-strict
+```
+
 Corpus :
 
 ```text

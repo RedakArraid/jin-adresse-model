@@ -1,4 +1,4 @@
-.PHONY: up down logs ban13 ban test
+.PHONY: up down logs ban13 ban test eval eval-strict
 
 up:
 	docker compose up --build -d
@@ -18,3 +18,9 @@ ban:
 
 test:
 	python -m unittest discover -s tests -v
+
+eval:
+	python scripts/evaluate_fictional_cases.py --show-success
+
+eval-strict:
+	python scripts/evaluate_fictional_cases.py --strict --show-success
