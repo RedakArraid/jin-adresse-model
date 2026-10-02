@@ -22,6 +22,8 @@ services:
     command: ["streamlit", "run", "ui.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
     environment:
       API_URL: http://api:8000
+      NO_PROXY: api,host.docker.internal,localhost,127.0.0.1,.bosch.com
+      no_proxy: api,host.docker.internal,localhost,127.0.0.1,.bosch.com
     depends_on:
       api:
         condition: service_healthy
