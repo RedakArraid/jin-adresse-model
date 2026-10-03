@@ -64,6 +64,10 @@ cd jin-adresse-model
 docker compose up --build -d
 ```
 
+Le Compose utilise `runc` par defaut afin de rester independant d'un runtime
+global Docker Desktop incompatible. Surcharge possible avec
+`CONTAINER_RUNTIME`.
+
 Puis ouvrir :
 
 - interface : http://localhost:8501
