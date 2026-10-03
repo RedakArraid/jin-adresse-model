@@ -66,7 +66,9 @@ docker compose up --build -d
 
 Le Compose utilise `runc` par defaut afin de rester independant d'un runtime
 global Docker Desktop incompatible. Surcharge possible avec
-`CONTAINER_RUNTIME`.
+`CONTAINER_RUNTIME`. Il transmet aussi `HTTP_PROXY`, `HTTPS_PROXY` et
+`NO_PROXY` aux builds et au chargeur BAN lorsque ces variables existent sur
+l'hote.
 
 Puis ouvrir :
 
