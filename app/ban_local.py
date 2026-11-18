@@ -4,6 +4,7 @@ import json
 import math
 import os
 import sqlite3
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -109,7 +110,7 @@ class LocalBANGeocoder:
             self._available_cache = False
             return False
         try:
-            with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=3) as con:
+            with closing(sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=3)) as con:
                 row = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ban_addresses'").fetchone()
                 self._available_cache = bool(row)
         except sqlite3.Error:
@@ -124,7 +125,7 @@ class LocalBANGeocoder:
             self._stats_cache = {"available": False, "path": str(self.db_path), "rows": 0, "departments": []}
             return dict(self._stats_cache)
         try:
-            with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
+            with closing(sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5)) as con:
                 has_meta = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='metadata'").fetchone()
                 meta = dict(con.execute("SELECT key, value FROM metadata").fetchall()) if has_meta else {}
                 if "rows_total" in meta:
@@ -205,7 +206,7 @@ class LocalBANGeocoder:
             )
 
         try:
-            with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
+            with closing(sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5)) as con:
                 rows = con.execute(
                     """
                     SELECT code_insee, nom_commune, nom_commune_norm
@@ -283,7 +284,7 @@ class LocalBANGeocoder:
             )
 
         try:
-            with sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5) as con:
+            with closing(sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5)) as con:
                 con.row_factory = sqlite3.Row
                 rows = self._candidate_rows(con, cp, numero, ville, street, int(limit))
         except sqlite3.Error as exc:

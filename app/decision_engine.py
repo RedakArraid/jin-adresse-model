@@ -34,6 +34,13 @@ class DecisionEngine:
         if evidence.number.status == "CONFLICT":
             return self._result("DIFFERENTE", "CONFLIT_NUMERO", min(score, self._cap("CONFLIT_NUMERO")))
 
+        if evidence.number.status == "TYPO_LIKELY":
+            return self._result(
+                "A_CONTROLER",
+                "NUMERO_DANS_PLAGE_A_CONTROLER",
+                min(score, self._cap("NUMERO_DANS_PLAGE_A_CONTROLER")),
+            )
+
         if evidence.suffix.status == "CONFLICT":
             return self._result(
                 "DIFFERENTE",

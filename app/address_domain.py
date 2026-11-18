@@ -11,6 +11,7 @@ class CanonicalAddress:
     raw: str
     normalized: str
     number: str = ""
+    number_end: str = ""
     suffix: str = ""
     street_type: str = ""
     street_name: str = ""
@@ -31,7 +32,8 @@ class CanonicalAddress:
 
     @property
     def house_key(self) -> str:
-        return f"{self.number}|{self.suffix}"
+        number = f"{self.number}-{self.number_end}" if self.number_end else self.number
+        return f"{number}|{self.suffix}"
 
     @property
     def street_key(self) -> str:
@@ -58,6 +60,7 @@ class CanonicalAddress:
         return {
             "norm": self.normalized,
             "numero": self.number,
+            "numero_fin": self.number_end,
             "suffixe": self.suffix,
             "type_voie": self.street_type,
             "nom_voie": self.street_name,
@@ -72,6 +75,7 @@ class CanonicalAddress:
         return {
             "norm": self.normalized,
             "numero": self.number,
+            "numero_fin": self.number_end,
             "suffixe": self.suffix,
             "type_voie": self.street_type,
             "nom_voie": self.street_name,
@@ -130,6 +134,7 @@ class AddressResolver:
             raw=raw,
             normalized=parsed["norm"],
             number=parsed.get("numero", ""),
+            number_end=parsed.get("numero_fin", ""),
             suffix=parsed.get("suffixe", ""),
             street_type=parsed.get("type_voie", ""),
             street_name=parsed.get("nom_voie", ""),
@@ -186,6 +191,74 @@ class AddressComparator:
             return FieldEvidence("CONFLICT", left, right, 0.0, "suffix_missing_one")
         return FieldEvidence("CONFLICT", left, right, 0.0)
 
+    @staticmethod
+    def _number(a: CanonicalAddress, b: CanonicalAddress) -> FieldEvidence:
+        left, right = a.number, b.number
+        if not left and not right:
+            return FieldEvidence("MISSING", left, right)
+        if not left or not right:
+            return FieldEvidence("UNKNOWN", left, right)
+
+        left_end = a.number_end or left
+        right_end = b.number_end or right
+        left_label = f"{left}-{left_end}" if a.number_end else left
+        right_label = f"{right}-{right_end}" if b.number_end else right
+        if left == right and left_end == right_end:
+            return FieldEvidence("EXACT", left_label, right_label, 1.0)
+
+        try:
+            left_start_i, left_end_i = int(left), int(left_end)
+            right_start_i, right_end_i = int(right), int(right_end)
+        except ValueError:
+            return FieldEvidence("CONFLICT", left_label, right_label, 0.0)
+
+        left_is_range = left_start_i != left_end_i
+        right_is_range = right_start_i != right_end_i
+        endpoint_match = (
+            left_is_range
+            and not right_is_range
+            and right_start_i in {left_start_i, left_end_i}
+        ) or (
+            right_is_range
+            and not left_is_range
+            and left_start_i in {right_start_i, right_end_i}
+        )
+        if endpoint_match:
+            return FieldEvidence(
+                "NORMALIZED_EXACT",
+                left_label,
+                right_label,
+                1.0,
+                "range_endpoint_match",
+            )
+
+        inside_range = (
+            left_is_range
+            and not right_is_range
+            and left_start_i < right_start_i < left_end_i
+        ) or (
+            right_is_range
+            and not left_is_range
+            and right_start_i < left_start_i < right_end_i
+        )
+        if inside_range:
+            return FieldEvidence(
+                "TYPO_LIKELY",
+                left_label,
+                right_label,
+                0.5,
+                "number_inside_range",
+            )
+        return FieldEvidence("CONFLICT", left_label, right_label, 0.0)
+
+    @staticmethod
+    def _street_core(value: str) -> str:
+        particles = {"a", "au", "aux", "d", "de", "des", "du", "l", "la", "le", "les"}
+        tokens = value.split()
+        while tokens and tokens[0] in particles:
+            tokens.pop(0)
+        return " ".join(tokens) or value
+
     def _city(self, a: CanonicalAddress, b: CanonicalAddress) -> FieldEvidence:
         left, right = a.city, b.city
         if not left and not right:
@@ -221,6 +294,15 @@ class AddressComparator:
         if left == right:
             return FieldEvidence("EXACT", left, right, 1.0)
 
+        if self._street_core(left) == self._street_core(right):
+            return FieldEvidence(
+                "NORMALIZED_EXACT",
+                left,
+                right,
+                1.0,
+                "optional_street_particles",
+            )
+
         similarity = max(safe_token_set(left, right), safe_ratio(left, right))
         conflict_below = float(self.policy["similarity"]["street_conflict_below"])
         if similarity < conflict_below:
@@ -228,21 +310,21 @@ class AddressComparator:
         return FieldEvidence("TYPO_LIKELY", left, right, similarity)
 
     def compare(self, a: CanonicalAddress, b: CanonicalAddress) -> AddressEvidence:
-        number = self._simple(a.number, b.number)
+        number = self._number(a, b)
         suffix = self._suffix(a.suffix, b.suffix)
         street_type = self._simple(a.street_type, b.street_type)
         street_name = self._street(a.street_name, b.street_name)
         postcode = self._simple(a.postcode, b.postcode)
         city = self._city(a, b)
 
+        exact_statuses = {"EXACT", "NORMALIZED_EXACT"}
         city_ok = city.status in {"EXACT", "NORMALIZED_EXACT", "TYPO_LIKELY"}
         strong_location = (
             postcode.status == "EXACT"
-            and number.status == "EXACT"
+            and number.status in exact_statuses
             and city_ok
         )
 
-        exact_statuses = {"EXACT", "NORMALIZED_EXACT"}
         exact_structure = (
             bool(a.number and b.number)
             and bool(a.street_type and b.street_type)

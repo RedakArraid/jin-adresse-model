@@ -1,5 +1,13 @@
 # Changelog
 
+## Correctifs V6.0
+
+- conservation des plages de numeros comme `15-17` pendant le parsing ;
+- correspondance automatique d'une borne de plage avec un numero simple ;
+- revue manuelle pour un numero strictement interieur a une plage ;
+- equivalence structurelle des particules de voie facultatives comme `de la` ;
+- recherche BAN alignee sur le numero concret de l'autre adresse.
+
 ## V6.0
 
 ### Architecture

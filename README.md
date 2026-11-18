@@ -178,6 +178,7 @@ Exemples de bornes :
 |---|---|---:|
 | `CONFLIT_CODE_POSTAL` | DIFFERENTE | max 4 |
 | `CONFLIT_NUMERO` | DIFFERENTE | max 4 |
+| `NUMERO_DANS_PLAGE_A_CONTROLER` | A_CONTROLER | max 89 |
 | `CONFLIT_SUFFIXE_NUMERO` | DIFFERENTE | max 4 |
 | `CONFLIT_TYPE_VOIE` | DIFFERENTE | max 8 |
 | `CONFLIT_COMMUNE` | DIFFERENTE | max 4 |
@@ -185,6 +186,10 @@ Exemples de bornes :
 | `COMMUNE_PROCHE_NON_IDENTIQUE` | A_CONTROLER | max 89 |
 | `NOM_VOIE_PROCHE_NON_IDENTIQUE` | A_CONTROLER | max 89 |
 | `STRUCTURE_IDENTIQUE` | MEME_ADRESSE | min 99 |
+
+Une plage de numeros explicite est conservee par le parseur. Une adresse portant une
+des deux extremites de la plage est consideree comme equivalente ; un numero strictement
+compris dans la plage reste `A_CONTROLER`, tandis qu'un numero hors plage est un conflit.
 
 Les valeurs sont centralisees dans :
 

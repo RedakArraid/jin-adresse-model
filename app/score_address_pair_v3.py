@@ -37,6 +37,7 @@ ADDRESS_COMPLEMENTS = {
     'batiment','appartement','etage','entree','immeuble','zoneactivite','zoneindustrielle',
     'zoneamenagement','centrecommercial','bp','cedex'
 }
+NUMBER_RANGE_MARKER = 'numrangeseparator'
 
 
 def strip_accents(s: str) -> str:
@@ -45,7 +46,15 @@ def strip_accents(s: str) -> str:
 
 def normalize_text(s: str) -> str:
     s = strip_accents(str(s).lower()).replace('\u2019', "'").replace("'", ' ')
-    s = re.sub(r'[-,.;:/()\[\]{}]', ' ', s)
+    # Preserve explicit house-number ranges before normalizing punctuation.
+    # Without this marker, ``15-17 rue`` becomes two unrelated numbers and the
+    # parser incorrectly keeps 17 as the house number.
+    s = re.sub(
+        r'\b(\d{1,4})\s*[-\u2013\u2014]\s*(\d{1,4})\b',
+        rf'\1 {NUMBER_RANGE_MARKER} \2',
+        s,
+    )
+    s = re.sub(r'[-\u2013\u2014,.;:/()\[\]{}]', ' ', s)
     s = re.sub(r'(?<=\d)(?=[a-z])', ' ', s)
     s = re.sub(r'(?<=[a-z])(?=\d)', ' ', s)
     s = re.sub(r'\b(\d{1,4})\s+b\b', r'\1 bis', s)
@@ -60,7 +69,12 @@ def normalize_text(s: str) -> str:
     for tok in re.sub(r'\s+', ' ', s).strip().split():
         mapped = WORD_ALIAS_MAP.get(tok, tok)
         out.append(TYPE_ALIAS_MAP.get(mapped, mapped))
-    return ' '.join(out)
+    normalized = ' '.join(out)
+    return re.sub(
+        rf'\b(\d{{1,4}})\s+{NUMBER_RANGE_MARKER}\s+(\d{{1,4}})\b',
+        r'\1-\2',
+        normalized,
+    )
 
 
 def make_city_map(city_names=None):
@@ -128,9 +142,17 @@ def parse_address(raw: str, city_map=None):
             type_idx, stype = i, tok
             break
 
-    num, suffix, pos = '', '', None
+    num, num_end, suffix, pos = '', '', '', None
+    ranges = []
+    for i, token in enumerate(tokens[:street_search_end]):
+        match = re.fullmatch(r'(\d{1,4})-(\d{1,4})', token)
+        if match:
+            start, end = int(match.group(1)), int(match.group(2))
+            ranges.append((i, str(min(start, end)), str(max(start, end))))
     digits = [(i, t) for i, t in enumerate(tokens[:street_search_end]) if re.fullmatch(r'\d{1,4}', t)]
-    if type_idx is not None:
+    if ranges:
+        pos, num, num_end = ranges[-1]
+    elif type_idx is not None:
         before = [(i, t) for i, t in digits if i < type_idx]
         if before:
             pos, num = before[-1]
@@ -153,6 +175,7 @@ def parse_address(raw: str, city_map=None):
     return {
         'norm': n,
         'numero': num,
+        'numero_fin': num_end,
         'suffixe': suffix,
         'type_voie': stype,
         'nom_voie': street,
@@ -193,7 +216,33 @@ def make_features(raw_a, raw_b, city_map=None, ext_a=None, ext_b=None):
     numa, numb = pa['numero'], pb['numero']
     numa_i = int(numa) if numa.isdigit() else None
     numb_i = int(numb) if numb.isdigit() else None
-    num_diff = abs(numa_i - numb_i) if numa_i is not None and numb_i is not None else 0.0
+    enda_i = int(pa.get('numero_fin') or numa) if numa.isdigit() else None
+    endb_i = int(pb.get('numero_fin') or numb) if numb.isdigit() else None
+    num_exact = False
+    num_inside_range = False
+    num_conflict = False
+    num_diff = 0.0
+    if numa_i is not None and numb_i is not None and enda_i is not None and endb_i is not None:
+        range_a = numa_i != enda_i
+        range_b = numb_i != endb_i
+        same_interval = numa_i == numb_i and enda_i == endb_i
+        endpoint_match = (
+            range_a and not range_b and numb_i in {numa_i, enda_i}
+        ) or (
+            range_b and not range_a and numa_i in {numb_i, endb_i}
+        )
+        num_inside_range = (
+            range_a and not range_b and numa_i < numb_i < enda_i
+        ) or (
+            range_b and not range_a and numb_i < numa_i < endb_i
+        )
+        num_exact = same_interval or endpoint_match
+        num_conflict = not num_exact and not num_inside_range
+        num_diff = min(
+            abs(left - right)
+            for left in {numa_i, enda_i}
+            for right in {numb_i, endb_i}
+        )
     cpa, cpb = pa['code_postal'], pb['code_postal']
     citya, cityb = pa['ville_norm'], pb['ville_norm']
     sa, sb = pa['suffixe'], pb['suffixe']
@@ -211,10 +260,10 @@ def make_features(raw_a, raw_b, city_map=None, ext_a=None, ext_b=None):
         'street_jaccard': jaccard_tokens(pa['nom_voie'], pb['nom_voie']),
         'sim_city': safe_ratio(citya, cityb),
         'num_present_both': int(bool(numa) and bool(numb)),
-        'num_exact': int(bool(numa) and bool(numb) and numa == numb),
+        'num_exact': int(num_exact),
         'num_abs_diff': min(float(num_diff), 50.0),
         'num_near_1': int(num_diff == 1),
-        'num_conflict': int(bool(numa) and bool(numb) and numa != numb),
+        'num_conflict': int(num_conflict),
         'suffix_present_any': int(bool(sa) or bool(sb)),
         'suffix_exact': int(sa == sb),
         'suffix_conflict': int(bool(sa) and bool(sb) and sa != sb),

@@ -85,6 +85,7 @@
       "CONFLIT_COMMUNE": 4,
       "COMMUNE_AMBIGUE": 80,
       "CONFLIT_NUMERO": 4,
+      "NUMERO_DANS_PLAGE_A_CONTROLER": 89,
       "CONFLIT_SUFFIXE_NUMERO": 4,
       "CONFLIT_TYPE_VOIE": 8,
       "CONFLIT_NOM_VOIE": 15,
@@ -103,6 +104,7 @@
     "ban": {
       "guarded_review_reasons": [
         "NOM_VOIE_PROCHE_NON_IDENTIQUE",
+        "NUMERO_DANS_PLAGE_A_CONTROLER",
         "COMMUNE_PROCHE_NON_IDENTIQUE",
         "COMMUNE_AMBIGUE"
       ],

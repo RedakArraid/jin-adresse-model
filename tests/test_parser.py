@@ -44,6 +44,12 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_address("14T rue Victor Hugo 92110 Clichy", {})["suffixe"], "ter")
         self.assertEqual(parse_address("14Q rue Victor Hugo 92110 Clichy", {})["suffixe"], "quater")
 
+    def test_house_number_range_is_preserved(self):
+        parsed = parse_address("15-17 rue de la Cense Bizet 51130 Blancs Coteaux", {})
+        self.assertEqual(parsed["numero"], "15")
+        self.assertEqual(parsed["numero_fin"], "17")
+        self.assertEqual(parsed["nom_voie"], "de la cense bizet")
+
     def test_abbreviations(self):
         a = normalize_text("370 RTE DE ST-CANADET 13100 AIX-EN-PROVENCE")
         b = normalize_text("370 route de Saint Canadet 13100 Aix en Provence")

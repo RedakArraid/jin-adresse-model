@@ -102,6 +102,22 @@ class BanTests(unittest.TestCase):
         self.assertEqual(r["decision_reason"], "NOM_VOIE_PROCHE_NON_IDENTIQUE")
         self.assertLessEqual(r["score_final"], 89.0)
 
+    def test_range_endpoint_uses_matching_ban_point(self):
+        rows = [
+            {"id_ban":"CENSE-15","numero":"15","rep":"","nom_voie":"Rue de la Cense Bizet","code_postal":"51130","code_insee":"51029","nom_commune":"Blancs-Coteaux","lon":"4.00","lat":"48.90"},
+            {"id_ban":"CENSE-17","numero":"17","rep":"","nom_voie":"Rue de la Cense Bizet","code_postal":"51130","code_insee":"51029","nom_commune":"Blancs-Coteaux","lon":"4.0001","lat":"48.9001"},
+        ]
+        self.import_rows(rows=rows, dep="51")
+        matcher = AddressMatcher(APP / "model_config.json", self.db)
+        result = matcher.score(
+            "15-17 RUE DE LA CENSE BIZET 51130 BLANCS COTEAUX",
+            "15 RUE CENSE BIZET 51130 BLANCS COTEAUX",
+            use_ban=True,
+        )
+        self.assertEqual(result["decision"], "MEME_ADRESSE")
+        self.assertEqual(result["address_a_ban"]["id_ban"], "CENSE-15")
+        self.assertEqual(result["address_b_ban"]["id_ban"], "CENSE-15")
+
     def test_stats_come_from_metadata(self):
         self.import_rows()
         g = LocalBANGeocoder(self.db)

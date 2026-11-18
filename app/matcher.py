@@ -90,6 +90,25 @@ class AddressMatcher:
             if ban_result.nom_commune and canonical.locality_status in {"UNRESOLVED", "NOT_FOUND"}:
                 canonical.city_canonical = canonical.city_canonical or ban_result.nom_commune
 
+    @staticmethod
+    def _ban_lookup_dict(canonical: CanonicalAddress, other: CanonicalAddress) -> Dict[str, str]:
+        parsed = canonical.to_lookup_dict()
+        if not canonical.number_end or not other.number:
+            return parsed
+        try:
+            start = int(canonical.number)
+            end = int(canonical.number_end)
+            other_number = int(other.number)
+        except ValueError:
+            return parsed
+        if start <= other_number <= end:
+            # Resolve the ranged address against the concrete point supplied by
+            # the other side. The decision engine still keeps an interior point
+            # under manual review; only an endpoint is an automatic text match.
+            parsed["numero"] = other.number
+            parsed["numero_fin"] = ""
+        return parsed
+
     def score(self, address_a: str, address_b: str, use_ban: bool = True) -> Dict[str, Any]:
         ban_available = self.ban.available()
         resolve_locality = bool(use_ban and ban_available)
@@ -129,8 +148,8 @@ class AddressMatcher:
                 )
             return base
 
-        ga = self.ban.lookup(address_a, canonical_a.to_lookup_dict())
-        gb = self.ban.lookup(address_b, canonical_b.to_lookup_dict())
+        ga = self.ban.lookup(address_a, self._ban_lookup_dict(canonical_a, canonical_b))
+        gb = self.ban.lookup(address_b, self._ban_lookup_dict(canonical_b, canonical_a))
         self._enrich_canonical_from_ban(canonical_a, ga)
         self._enrich_canonical_from_ban(canonical_b, gb)
 

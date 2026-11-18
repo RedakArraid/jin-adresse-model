@@ -30,6 +30,7 @@ Chaque composant peut etre classe : `EXACT`, `NORMALIZED_EXACT`, `TYPO_LIKELY`, 
 |---|---|---|---:|
 | CP `CONFLICT` | `CONFLIT_CODE_POSTAL` | DIFFERENTE | max 4 |
 | Numero `CONFLICT` | `CONFLIT_NUMERO` | DIFFERENTE | max 4 |
+| Numero strictement compris dans une plage | `NUMERO_DANS_PLAGE_A_CONTROLER` | A_CONTROLER | max 89 |
 | Suffixe `CONFLICT` | `CONFLIT_SUFFIXE_NUMERO` | DIFFERENTE | max 4 |
 | Type de voie `CONFLICT` | `CONFLIT_TYPE_VOIE` | DIFFERENTE | max 8 |
 | Commune `CONFLICT` | `CONFLIT_COMMUNE` | DIFFERENTE | max 4 |
@@ -39,6 +40,10 @@ Chaque composant peut etre classe : `EXACT`, `NORMALIZED_EXACT`, `TYPO_LIKELY`, 
 | Structure exacte/canonique | `STRUCTURE_IDENTIQUE` | MEME_ADRESSE | min 99 |
 
 Les conflits durs sont evalues avant les fautes probables.
+
+Pour une plage explicite telle que `15-17`, les numeros `15` et `17` sont des
+correspondances normalisees. Le numero `16` exige un controle, et un numero hors de
+la plage reste un conflit dur.
 
 ## Resolution de commune
 

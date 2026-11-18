@@ -106,6 +106,46 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual(r["decision"], "DIFFERENTE")
         self.assertEqual(r["decision_reason"], "CONFLIT_NUMERO")
 
+    def test_house_number_range_endpoint_and_optional_particles_match(self):
+        r = self.score(
+            "15-17 RUE DE LA CENSE BIZET 51130 BLANCS COTEAUX",
+            "15 RUE CENSE BIZET 51130 BLANCS COTEAUX",
+        )
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+        self.assertEqual(r["decision_reason"], "STRUCTURE_IDENTIQUE")
+        self.assertEqual(r["field_evidence"]["number"]["status"], "NORMALIZED_EXACT")
+        self.assertEqual(r["field_evidence"]["street_name"]["status"], "NORMALIZED_EXACT")
+
+    def test_house_number_range_other_endpoint_matches(self):
+        r = self.score(
+            "17 RUE CENSE BIZET 51130 BLANCS COTEAUX",
+            "15-17 RUE DE LA CENSE BIZET 51130 BLANCS COTEAUX",
+        )
+        self.assertEqual(r["decision"], "MEME_ADRESSE")
+
+    def test_internal_street_particle_is_not_silently_removed(self):
+        r = self.score(
+            "15 RUE JEAN LE BON 51130 BLANCS COTEAUX",
+            "15 RUE JEAN BON 51130 BLANCS COTEAUX",
+        )
+        self.assertNotEqual(r["decision_reason"], "STRUCTURE_IDENTIQUE")
+
+    def test_house_number_inside_range_requires_review(self):
+        r = self.score(
+            "15-17 RUE DE LA CENSE BIZET 51130 BLANCS COTEAUX",
+            "16 RUE CENSE BIZET 51130 BLANCS COTEAUX",
+        )
+        self.assertEqual(r["decision"], "A_CONTROLER")
+        self.assertEqual(r["decision_reason"], "NUMERO_DANS_PLAGE_A_CONTROLER")
+
+    def test_house_number_outside_range_is_different(self):
+        r = self.score(
+            "15-17 RUE DE LA CENSE BIZET 51130 BLANCS COTEAUX",
+            "18 RUE CENSE BIZET 51130 BLANCS COTEAUX",
+        )
+        self.assertEqual(r["decision"], "DIFFERENTE")
+        self.assertEqual(r["decision_reason"], "CONFLIT_NUMERO")
+
     def test_suffix_missing_conflict(self):
         r = self.score("14 rue Victor Hugo 92110 Clichy", "14 bis rue Victor Hugo 92110 Clichy")
         self.assertEqual(r["decision"], "DIFFERENTE")
